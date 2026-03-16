@@ -1,0 +1,39 @@
+cabal-version: 2.0
+
+name:           stringfmt
+version:        0.0.1
+synopsis:       Type-safe formatting as an indexed continuation profunctor.
+description:    Efficient string formatting
+category:       Text, Data, Profunctors
+stability:      Experimental
+homepage:       https://github.com/cmk/stringfmt
+bug-reports:    https://github.com/cmk/stringfmt/issues
+author:         Chris McKinlay
+maintainer:     Chris McKinlay
+copyright:      2020-2026 Chris McKinlay
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/cmk/stringfmt
+
+library
+  exposed-modules:
+      Data.Fmt
+      Data.Fmt.Functor
+      Data.Fmt.Fixed
+      Data.Fmt.String
+      Data.Fmt.Tree
+
+  default-language: Haskell2010
+
+  hs-source-dirs:
+      src
+
+  ghc-options: -Wall
+
+  build-depends:
+      base               >= 4.16  && < 5.0
+    , profunctors

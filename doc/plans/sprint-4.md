@@ -13,7 +13,7 @@ This is the core of the pretty-printer: width-sensitive layout.
 Without it, `group`/`flatten`/`align` are just tree constructors
 with no observable effect. The layout algorithm is the most complex
 piece — it threads state (column, nesting) and makes choices at
-`UnionF` nodes based on a fitting predicate.
+`Union` nodes based on a fitting predicate.
 
 ## Stories
 
@@ -73,7 +73,7 @@ pretty :: IsString m => LayoutOptions -> Tree m ann -> m
 | P77  | `pretty opts emptyDoc = ""`                                    |
 | P78  | `pretty opts (flatAlt x y)` uses x (the default)              |
 | P79  | `layoutCompact` never uses single-line layout                  |
-| P80  | `FailF` in a flattened branch causes fallback to default       |
+| P80  | `Fail` in a flattened branch causes fallback to default       |
 
 ### Rendering (P81–P85)
 

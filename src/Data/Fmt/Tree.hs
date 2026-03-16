@@ -36,22 +36,22 @@ import Data.String (IsString (..))
 -- | Layout failure.
 {-# INLINE fail_ #-}
 fail_ :: Tree m ann
-fail_ = wrap FailF
+fail_ = wrap Fail
 
 -- | Empty document.
 {-# INLINE emptyDoc #-}
 emptyDoc :: Tree m ann
-emptyDoc = wrap EmptyF
+emptyDoc = wrap Empty
 
 -- | Literal content with display width.
 {-# INLINE leaf #-}
 leaf :: Int -> m -> Tree m ann
-leaf n m = wrap (LeafF n m)
+leaf n m = wrap (Leaf n m)
 
 -- | Hard line break. Cannot be flattened.
 {-# INLINE hardline #-}
 hardline :: Tree m ann
-hardline = wrap LineF
+hardline = wrap Line
 
 -- | Line break, or space when flattened.
 {-# INLINE line #-}
@@ -67,48 +67,48 @@ line' = flatAlt hardline emptyDoc
 -- @flat@ when flattened by 'group'.
 {-# INLINE flatAlt #-}
 flatAlt :: Tree m ann -> Tree m ann -> Tree m ann
-flatAlt x y = wrap (FlatAltF x y)
+flatAlt x y = wrap (FlatAlt x y)
 
 -- | Increase nesting by @i@.
 {-# INLINE nest #-}
 nest :: Int -> Tree m ann -> Tree m ann
-nest i = wrap . NestF i
+nest i = wrap . Nest i
 
 -- | Layout alternatives. Invariant: first argument is the
 -- flattened form of the second.
 {-# INLINE union #-}
 union :: Tree m ann -> Tree m ann -> Tree m ann
-union x y = wrap (UnionF x y)
+union x y = wrap (Union x y)
 
 -- | Attach an annotation.
 {-# INLINE annotate #-}
 annotate :: ann -> Tree m ann -> Tree m ann
-annotate a = wrap . AnnF a
+annotate a = wrap . Ann a
 
 -- | React to the current column position.
 {-# INLINE column #-}
 column :: (Int -> Tree m ann) -> Tree m ann
-column = wrap . ColumnF
+column = wrap . Column
 
 -- | React to the current nesting level.
 {-# INLINE nesting #-}
 nesting :: (Int -> Tree m ann) -> Tree m ann
-nesting = wrap . NestingF
+nesting = wrap . Nesting
 
 ---------------------------------------------------------------------
 -- Combinators
 ---------------------------------------------------------------------
 
--- | Replace 'FlatAltF' with its flat branch, 'LineF' with 'FailF'.
+-- | Replace 'FlatAlt' with its flat branch, 'Line' with 'Fail'.
 --
 -- Implemented as a fold — children are flattened first,
--- so 'ColumnF'/'NestingF' functions automatically produce
+-- so 'Column'/'Nesting' functions automatically produce
 -- flattened subtrees.
 flatten :: Tree m ann -> Tree m ann
 flatten = fold $ \case
-    FlatAltF _ y -> y     -- use the flat alternative
-    LineF -> fail_        -- hardline can't be flattened
-    UnionF a _ -> a       -- already the flatter branch
+    FlatAlt _ y -> y     -- use the flat alternative
+    Line -> fail_        -- hardline can't be flattened
+    Union a _ -> a       -- already the flatter branch
     other -> wrap other  -- re-wrap with flattened children
 
 -- | Try to lay out the document on a single line.

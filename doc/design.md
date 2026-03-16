@@ -236,45 +236,45 @@ Testable properties:
 
 ```haskell
 data FmtF m ann r
-    = FailF | EmptyF | LeafF !Int !m
-    | CatF r r | LineF | FlatAltF r r
-    | NestF !Int r | UnionF r r | AnnF ann r
-    | ColumnF (Int -> r) | NestingF (Int -> r)
+    = Fail | Empty | Leaf !Int !m
+    | Cat r r | Line | FlatAlt r r
+    | Nest !Int r | Union r r | Ann ann r
+    | Column (Int -> r) | Nesting (Int -> r)
 ```
 
 Changes from prettyprinter's `Doc`:
 
-- `Char`/`Text` merged into `LeafF !Int !m` — parametric over
+- `Char`/`Text` merged into `Leaf !Int !m` — parametric over
   content type, one fewer constructor
 - `WithPageWidth` dropped — rarely used, recoverable via
-  `ColumnF`/`NestingF`
-- `FailF` retained — needed for lazy failure propagation through
-  `ColumnF`/`NestingF` (can't eagerly determine flatten success
+  `Column`/`Nesting`
+- `Fail` retained — needed for lazy failure propagation through
+  `Column`/`Nesting` (can't eagerly determine flatten success
   when functions are in the tree)
 - Parametric over `m` (content type) — works with `Text`,
   `Builder`, `ShowS`-wrapper, etc.
 
-`ColumnF` and `NestingF` contain functions (`Int -> r`), so
+`Column` and `Nesting` contain functions (`Int -> r`), so
 `FmtF` has `Functor` but not `Foldable` or `Traversable`.
 
 `Tree m ann = Fix (FmtF m ann)` is the document tree type, with
-`Semigroup` (via `CatF`), `Monoid` (via `EmptyF`), and `IsString`
-(via `LeafF`) instances, making it usable as the monoid in
+`Semigroup` (via `Cat`), `Monoid` (via `Empty`), and `IsString`
+(via `Leaf`) instances, making it usable as the monoid in
 `Fmt (Tree m ann) a b`.
 
 ## Pretty-printer operations as recursion schemes
 
 | Operation | Scheme | Notes |
 |---|---|---|
-| `flatten` | `fold` | `FlatAltF _ y -> y`, `LineF -> FailF` |
-| `changesUponFlattening` | `foldWithContext` | Needs original subtree at `CatF` for mixed flat/non-flat children |
-| `group` | `foldWithAux` (optimized) | Auxiliary: changesUponFlattening. Main: wrap in `UnionF` or not |
+| `flatten` | `fold` | `FlatAlt _ y -> y`, `Line -> Fail` |
+| `changesUponFlattening` | `foldWithContext` | Needs original subtree at `Cat` for mixed flat/non-flat children |
+| `group` | `foldWithAux` (optimized) | Auxiliary: changesUponFlattening. Main: wrap in `Union` or not |
 | `group` (simple) | direct | `union (flatten x) x` — correct, skips optimization |
-| `fuse Shallow` | `fold` | Merge adjacent `LeafF` nodes |
+| `fuse Shallow` | `fold` | Merge adjacent `Leaf` nodes |
 | `fuse Deep` | `prepro` | Natural transformation (fuse layer) applied before each step |
 | `reAnnotate` | `fold` or `hoist` | Map over annotations |
 | `layout` | `refold` | Unfold tree (with stack as state) into token stream |
-| Union/fit checking | Elgot algebra | Try one branch, bail to other on `FailF` |
+| Union/fit checking | Elgot algebra | Try one branch, bail to other on `Fail` |
 | Incremental layout | streaming metamorphism | Interleave emit/consume via `fstream` pattern |
 
 ## Module layout

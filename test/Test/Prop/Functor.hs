@@ -21,30 +21,30 @@ tests = checkParallel $$(discover)
 -- | Render a Tree String () to a flat string (ignoring layout).
 render :: Tree String () -> String
 render = fold $ \case
-    FailF -> ""
-    EmptyF -> ""
-    LeafF _ m -> m
-    CatF a b -> a ++ b
-    LineF -> "\n"
-    FlatAltF a _ -> a
-    NestF _ a -> a
-    UnionF _ b -> b
-    AnnF _ a -> a
-    ColumnF f -> f 0
-    NestingF f -> f 0
+    Fail -> ""
+    Empty -> ""
+    Leaf _ m -> m
+    Cat a b -> a ++ b
+    Line -> "\n"
+    FlatAlt a _ -> a
+    Nest _ a -> a
+    Union _ b -> b
+    Ann _ a -> a
+    Column f -> f 0
+    Nesting f -> f 0
 
 genLeaf :: Gen (Tree String ())
 genLeaf = do
     s <- Gen.string (Range.linear 1 10) Gen.alpha
-    pure $ wrap (LeafF (length s) s)
+    pure $ wrap (Leaf (length s) s)
 
 genTree :: Gen (Tree String ())
 genTree = Gen.recursive Gen.choice
     [ genLeaf
-    , pure (wrap EmptyF)
+    , pure (wrap Empty)
     ]
-    [ Gen.subterm2 genTree genTree (\a b -> wrap (CatF a b))
-    , Gen.subterm genTree (\a -> wrap (NestF 2 a))
+    [ Gen.subterm2 genTree genTree (\a b -> wrap (Cat a b))
+    , Gen.subterm genTree (\a -> wrap (Nest 2 a))
     ]
 
 forAllTree :: Gen (Tree String ()) -> PropertyT IO (Tree String ())

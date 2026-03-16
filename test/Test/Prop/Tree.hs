@@ -22,32 +22,32 @@ tests = checkParallel $$(discover)
 -- | Simple render: flatten tree to string ignoring layout.
 render :: Tree String () -> String
 render = fold $ \case
-    FailF -> ""
-    EmptyF -> ""
-    LeafF _ m -> m
-    CatF a b -> a ++ b
-    LineF -> "\n"
-    FlatAltF a _ -> a
-    NestF _ a -> a
-    UnionF _ b -> b
-    AnnF _ a -> a
-    ColumnF f -> f 0
-    NestingF f -> f 0
+    Fail -> ""
+    Empty -> ""
+    Leaf _ m -> m
+    Cat a b -> a ++ b
+    Line -> "\n"
+    FlatAlt a _ -> a
+    Nest _ a -> a
+    Union _ b -> b
+    Ann _ a -> a
+    Column f -> f 0
+    Nesting f -> f 0
 
 -- | Render the flattened (single-line) version.
 renderFlat :: Tree String () -> Maybe String
 renderFlat = fold $ \case
-    FailF -> Nothing
-    EmptyF -> Just ""
-    LeafF _ m -> Just m
-    CatF a b -> (++) <$> a <*> b
-    LineF -> Nothing
-    FlatAltF _ b -> b
-    NestF _ a -> a
-    UnionF a _ -> a
-    AnnF _ a -> a
-    ColumnF f -> f 0
-    NestingF f -> f 0
+    Fail -> Nothing
+    Empty -> Just ""
+    Leaf _ m -> Just m
+    Cat a b -> (++) <$> a <*> b
+    Line -> Nothing
+    FlatAlt _ b -> b
+    Nest _ a -> a
+    Union a _ -> a
+    Ann _ a -> a
+    Column f -> f 0
+    Nesting f -> f 0
 
 genLeaf :: Gen (Tree String ())
 genLeaf = do

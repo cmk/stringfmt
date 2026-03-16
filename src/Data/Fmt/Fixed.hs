@@ -80,7 +80,7 @@ fold alg (Fix f) = f alg
 -- The algebra receives both the recursive result and the
 -- original subtree, useful when you need the unmodified
 -- structure (e.g. 'Data.Fmt.Tree.group' needs the original
--- doc for the 'UnionF' fallback branch).
+-- doc for the 'Union' fallback branch).
 foldWithContext :: Functor f => (f (Fix f, a) -> a) -> Fix f -> a
 foldWithContext alg = snd . fold (\f -> (wrap (fmap fst f), alg f))
 
@@ -90,7 +90,7 @@ foldWithContext alg = snd . fold (\f -> (wrap (fmap fst f), alg f))
 -- position. Useful for 'Data.Fmt.Tree.group' where the
 -- auxiliary computes whether flattening changes anything, and
 -- the main algebra uses that to decide whether to wrap in
--- 'Data.Fmt.Functor.UnionF'.
+-- 'Data.Fmt.Functor.Union'.
 foldWithAux :: Functor f => Algebra f b -> (f (b, a) -> a) -> Fix f -> a
 foldWithAux aux alg = snd . fold (\f -> (aux (fmap fst f), alg f))
 

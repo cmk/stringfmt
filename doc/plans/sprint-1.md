@@ -109,10 +109,10 @@ that builds bounded-depth trees using smart constructors.
 
 1. Tree generator depth bound: what's a reasonable max depth for
    property testing? (5? 10? Need to balance coverage vs speed)
-2. Testing `ColumnF`/`NestingF` — these contain functions, so can't
+2. Testing `Column`/`Nesting` — these contain functions, so can't
    test structural equality directly. Test via layout/rendering?
 3. Should P12 (IsString homomorphism) hold for Tree? `fromString`
    caches length per leaf, so `fromString (s ++ t)` is one leaf
-   while `fromString s <> fromString t` is `CatF` of two leaves.
+   while `fromString s <> fromString t` is `Cat` of two leaves.
    These are semantically equal but structurally different —
    need to define equality via a rendering fold.

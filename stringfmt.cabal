@@ -37,3 +37,22 @@ library
   build-depends:
       base               >= 4.16  && < 5.0
     , profunctors
+
+test-suite props
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+
+  other-modules:
+      Test.Prop.Fixed
+      Test.Prop.Functor
+      Test.Prop.Tree
+      Test.Prop.Fmt
+      Test.Prop.String
+
+  build-depends:
+      base               >= 4.16  && < 5.0
+    , hedgehog           >= 1.0
+    , stringfmt

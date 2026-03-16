@@ -25,6 +25,7 @@ library
       Data.Fmt.Functor
       Data.Fmt.Fixed
       Data.Fmt.ByteString
+      Data.Fmt.Cons
       Data.Fmt.Code
       Data.Fmt.String
       Data.Fmt.Text
@@ -58,6 +59,7 @@ test-suite props
       Test.Prop.Fmt
       Test.Prop.String
       Test.Prop.ByteString
+      Test.Prop.Cons
       Test.Prop.Code
       Test.Prop.Text
 

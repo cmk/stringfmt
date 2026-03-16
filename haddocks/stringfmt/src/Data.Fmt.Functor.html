@@ -1,0 +1,119 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveFunctor #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- | Pattern functor for document trees.</span><span>
+</span><span id="line-5"></span><span class="hs-comment">--</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- @FmtF m ann@ is the base functor for pretty-printer documents,</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- parametric over content type @m@ and annotation type @ann@.</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Changes from prettyprinter's @DocF@:</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- * @Char@/@Text@ merged into @Leaf m@ (parametric content)</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- * @WithPageWidth@ dropped (recoverable via @Column@/@Nesting@)</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- * @Fail@ retained for lazy failure propagation through @Column@/@Nesting@</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.Fmt.Functor</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Pattern functor</span></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><a href="Data.Fmt.Functor.html#FmtF"><span class="hs-identifier">FmtF</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Tree</span></span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><a href="Data.Fmt.Functor.html#Tree"><span class="hs-identifier">Tree</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Fmt.Fixed.html"><span class="hs-identifier">Data.Fmt.Fixed</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Fmt.Fixed.html#Fix"><span class="hs-identifier">Fix</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Fmt.Fixed.html#wrap"><span class="hs-identifier">wrap</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.String</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsString</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- | One layer of a document tree.</span><span>
+</span><span id="line-26"></span><span class="hs-comment">--</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- @r@ marks recursive positions. @m@ is the content type</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- (e.g. 'Data.Text.Text', 'Data.ByteString.Builder.Builder').</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- @ann@ is the annotation type (e.g. ANSI styles, HTML tags).</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">data</span><span> </span><span id="FmtF"><span class="annot"><a href="Data.Fmt.Functor.html#FmtF"><span class="hs-identifier hs-var">FmtF</span></a></span></span><span> </span><span id="local-6989586621679060368"><span class="annot"><a href="#local-6989586621679060368"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679060369"><span class="annot"><a href="#local-6989586621679060369"><span class="hs-identifier hs-type">ann</span></a></span></span><span> </span><span id="local-6989586621679060367"><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span></span><span>
+</span><span id="line-31"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-comment">-- | Layout failure. Produced by 'Data.Fmt.Tree.flatten' on</span><span>
+</span><span id="line-32"></span><span>      </span><span class="hs-comment">-- hard line breaks; consumed by the layout algorithm to</span><span>
+</span><span id="line-33"></span><span>      </span><span class="hs-comment">-- reject a flattened branch.</span><span>
+</span><span id="line-34"></span><span>      </span><span id="Fail"><span class="annot"><a href="Data.Fmt.Functor.html#Fail"><span class="hs-identifier hs-var">Fail</span></a></span></span><span>
+</span><span id="line-35"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Empty document.</span></span><span>
+</span><span id="line-36"></span><span>      </span><span id="Empty"><span class="annot"><a href="Data.Fmt.Functor.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span></span><span>
+</span><span id="line-37"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Literal content with cached display width.</span></span><span>
+</span><span id="line-38"></span><span>      </span><span id="Leaf"><span class="annot"><a href="Data.Fmt.Functor.html#Leaf"><span class="hs-identifier hs-var">Leaf</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679060368"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-39"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Concatenation.</span></span><span>
+</span><span id="line-40"></span><span>      </span><span id="Cat"><span class="annot"><a href="Data.Fmt.Functor.html#Cat"><span class="hs-identifier hs-var">Cat</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Hard line break. Cannot be flattened (becomes 'Fail').</span></span><span>
+</span><span id="line-42"></span><span>      </span><span id="Line"><span class="annot"><a href="Data.Fmt.Functor.html#Line"><span class="hs-identifier hs-var">Line</span></a></span></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="hs-comment">-- | @FlatAlt default flat@: use @default@ normally,</span><span>
+</span><span id="line-44"></span><span>      </span><span class="hs-comment">-- @flat@ when flattened by 'Data.Fmt.Tree.group'.</span><span>
+</span><span id="line-45"></span><span>      </span><span id="FlatAlt"><span class="annot"><a href="Data.Fmt.Functor.html#FlatAlt"><span class="hs-identifier hs-var">FlatAlt</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | @Nest i doc@: increase nesting by @i@ for @doc@.</span></span><span>
+</span><span id="line-47"></span><span>      </span><span id="Nest"><span class="annot"><a href="Data.Fmt.Functor.html#Nest"><span class="hs-identifier hs-var">Nest</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="hs-comment">-- | @Union wide narrow@: layout alternatives.</span><span>
+</span><span id="line-49"></span><span>      </span><span class="hs-comment">-- Invariant: @wide@ is the flattened form of @narrow@.</span><span>
+</span><span id="line-50"></span><span>      </span><span class="hs-comment">-- Internal &#8212; constructed only by 'Data.Fmt.Tree.group'.</span><span>
+</span><span id="line-51"></span><span>      </span><span id="Union"><span class="annot"><a href="Data.Fmt.Functor.html#Union"><span class="hs-identifier hs-var">Union</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Annotated document.</span></span><span>
+</span><span id="line-53"></span><span>      </span><span id="Ann"><span class="annot"><a href="Data.Fmt.Functor.html#Ann"><span class="hs-identifier hs-var">Ann</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679060369"><span class="hs-identifier hs-type">ann</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | React to the current column position.</span></span><span>
+</span><span id="line-55"></span><span>      </span><span id="Column"><span class="annot"><a href="Data.Fmt.Functor.html#Column"><span class="hs-identifier hs-var">Column</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | React to the current nesting level.</span></span><span>
+</span><span id="line-57"></span><span>      </span><span id="Nesting"><span class="annot"><a href="Data.Fmt.Functor.html#Nesting"><span class="hs-identifier hs-var">Nesting</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679060367"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679060395"><span id="local-6989586621679060397"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; FmtF m ann a -&gt; FmtF m ann b)
+-&gt; (forall a b. a -&gt; FmtF m ann b -&gt; FmtF m ann a)
+-&gt; Functor (FmtF m ann)
+forall a b. a -&gt; FmtF m ann b -&gt; FmtF m ann a
+forall a b. (a -&gt; b) -&gt; FmtF m ann a -&gt; FmtF m ann b
+forall m ann a b. a -&gt; FmtF m ann b -&gt; FmtF m ann a
+forall m ann a b. (a -&gt; b) -&gt; FmtF m ann a -&gt; FmtF m ann b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+$cfmap :: forall m ann a b. (a -&gt; b) -&gt; FmtF m ann a -&gt; FmtF m ann b
+fmap :: forall a b. (a -&gt; b) -&gt; FmtF m ann a -&gt; FmtF m ann b
+$c&lt;$ :: forall m ann a b. a -&gt; FmtF m ann b -&gt; FmtF m ann a
+&lt;$ :: forall a b. a -&gt; FmtF m ann b -&gt; FmtF m ann a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="annot"><span class="hs-comment">-- | A document tree: the initial algebra of @FmtF m ann@.</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">type</span><span> </span><span id="Tree"><span class="annot"><a href="Data.Fmt.Functor.html#Tree"><span class="hs-identifier hs-var">Tree</span></a></span></span><span> </span><span id="local-6989586621679060400"><span class="annot"><a href="#local-6989586621679060400"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679060401"><span class="annot"><a href="#local-6989586621679060401"><span class="hs-identifier hs-type">ann</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Data.Fmt.Fixed.html#Fix"><span class="hs-identifier hs-type">Fix</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Fmt.Functor.html#FmtF"><span class="hs-identifier hs-type">FmtF</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060400"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060401"><span class="hs-identifier hs-type">ann</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- Instances</span><span>
+</span><span id="line-65"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679060363"><span id="local-6989586621679060364"><span id="local-6989586621679060404"><span id="local-6989586621679060408"><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Fmt.Functor.html#Tree"><span class="hs-identifier hs-type">Tree</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060363"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060364"><span class="hs-identifier hs-type">ann</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">&lt;&gt;</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-69"></span><span>    </span><span id="local-6989586621679060414"><span class="annot"><span class="annottext">Tree m ann
+</span><a href="#local-6989586621679060414"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679060415"><span class="annot"><span class="annottext">&lt;&gt; :: Tree m ann -&gt; Tree m ann -&gt; Tree m ann
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;&gt;</span></span></span><span> </span><span id="local-6989586621679060416"><span class="annot"><span class="annottext">Tree m ann
+</span><a href="#local-6989586621679060416"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FmtF m ann (Tree m ann) -&gt; Tree m ann
+forall (f :: * -&gt; *). Functor f =&gt; f (Fix f) -&gt; Fix f
+</span><a href="Data.Fmt.Fixed.html#wrap"><span class="hs-identifier hs-var">wrap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tree m ann -&gt; Tree m ann -&gt; FmtF m ann (Tree m ann)
+forall m ann r. r -&gt; r -&gt; FmtF m ann r
+</span><a href="Data.Fmt.Functor.html#Cat"><span class="hs-identifier hs-var">Cat</span></a></span><span> </span><span class="annot"><span class="annottext">Tree m ann
+</span><a href="#local-6989586621679060414"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Tree m ann
+</span><a href="#local-6989586621679060416"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679060373"><span id="local-6989586621679060374"><span id="local-6989586621679060421"><span id="local-6989586621679060425"><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Fmt.Functor.html#Tree"><span class="hs-identifier hs-type">Tree</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060373"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060374"><span class="hs-identifier hs-type">ann</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">mempty</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-73"></span><span>    </span><span id="local-6989586621679060429"><span class="annot"><span class="annottext">mempty :: Tree m ann
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">mempty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FmtF m ann (Tree m ann) -&gt; Tree m ann
+forall (f :: * -&gt; *). Functor f =&gt; f (Fix f) -&gt; Fix f
+</span><a href="Data.Fmt.Fixed.html#wrap"><span class="hs-identifier hs-var">wrap</span></a></span><span> </span><span class="annot"><span class="annottext">FmtF m ann (Tree m ann)
+forall m ann r. FmtF m ann r
+</span><a href="Data.Fmt.Functor.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679060378"><span id="local-6989586621679060379"><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="annot"><a href="#local-6989586621679060378"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Fmt.Functor.html#Tree"><span class="hs-identifier hs-type">Tree</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060378"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679060379"><span class="hs-identifier hs-type">ann</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">fromString</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-77"></span><span>    </span><span id="local-6989586621679060438"><span class="annot"><span class="annottext">fromString :: String -&gt; Tree m ann
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">fromString</span></span></span><span> </span><span id="local-6989586621679060439"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679060439"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FmtF m ann (Tree m ann) -&gt; Tree m ann
+forall (f :: * -&gt; *). Functor f =&gt; f (Fix f) -&gt; Fix f
+</span><a href="Data.Fmt.Fixed.html#wrap"><span class="hs-identifier hs-var">wrap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; m -&gt; FmtF m ann (Tree m ann)
+forall m ann r. Int -&gt; m -&gt; FmtF m ann r
+</span><a href="Data.Fmt.Functor.html#Leaf"><span class="hs-identifier hs-var">Leaf</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679060439"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; m
+forall a. IsString a =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">fromString</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679060439"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span></pre></body></html>

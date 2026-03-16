@@ -25,9 +25,11 @@ library
       Data.Fmt.Functor
       Data.Fmt.Fixed
       Data.Fmt.ByteString
+      Data.Fmt.Code
       Data.Fmt.String
       Data.Fmt.Text
       Data.Fmt.Tree
+      Data.Fmt.Type
 
   default-language: Haskell2010
 
@@ -56,6 +58,7 @@ test-suite props
       Test.Prop.Fmt
       Test.Prop.String
       Test.Prop.ByteString
+      Test.Prop.Code
       Test.Prop.Text
 
   build-depends:

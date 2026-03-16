@@ -24,7 +24,9 @@ library
       Data.Fmt
       Data.Fmt.Functor
       Data.Fmt.Fixed
+      Data.Fmt.ByteString
       Data.Fmt.String
+      Data.Fmt.Text
       Data.Fmt.Tree
 
   default-language: Haskell2010
@@ -36,7 +38,9 @@ library
 
   build-depends:
       base               >= 4.16  && < 5.0
+    , bytestring
     , profunctors
+    , text
 
 test-suite props
   type: exitcode-stdio-1.0
@@ -51,8 +55,12 @@ test-suite props
       Test.Prop.Tree
       Test.Prop.Fmt
       Test.Prop.String
+      Test.Prop.ByteString
+      Test.Prop.Text
 
   build-depends:
       base               >= 4.16  && < 5.0
+    , bytestring
     , hedgehog           >= 1.0
     , stringfmt
+    , text

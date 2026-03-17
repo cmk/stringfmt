@@ -74,6 +74,8 @@ module Data.Fmt.Fixed (
 
     -- * Natural transformations
     hoist,
+    comap,
+    contramap,
     prepro,
     postpro,
     transverse,
@@ -317,6 +319,21 @@ comutu psi' psi = unfold (fromEither . bimap (fmap swapEither . psi') psi) . Rig
 {-# INLINE hoist #-}
 hoist :: (forall a. f a -> g a) -> Mu f -> Mu g
 hoist = F.hoistMu
+
+-- | Map over the first type parameter of a 'Bifunctor' base functor
+-- via anamorphism: project, transform, re-embed.
+--
+-- Works for any @Bifunctor f@: 'Cons', or any other two-parameter
+-- base functor where @first@ maps the "element" type.
+comap :: (Bifunctor f, Functor (f a), Functor (f b)) => (a -> b) -> Mu (f a) -> Mu (f b)
+comap g = unfold (first g . unwrap)
+
+-- | Map over the first type parameter via catamorphism.
+--
+-- Semantically identical to 'comap' — the names refer to the
+-- recursion strategy (ana vs cata), not to variance.
+contramap :: (Bifunctor f, Functor (f a), Functor (f b)) => (a -> b) -> Mu (f a) -> Mu (f b)
+contramap g = fold (wrap . first g)
 
 -- | Fokkinga's prepromorphism.
 prepro :: Functor f => (forall a. f a -> f a) -> Algebra f c -> Mu f -> c

@@ -1,9 +1,11 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Type-safe formatting as an indexed continuation profunctor.
 --
@@ -64,6 +66,8 @@ module Data.Fmt.Type (
 import Control.Arrow
 import Control.Category (Category ())
 import Data.Profunctor
+import Data.Profunctor.Rep
+import Data.Profunctor.Sieve
 import Data.String
 import qualified Control.Category as C
 
@@ -83,6 +87,12 @@ deriving via (Costar ((->) m)) instance Profunctor (Fmt m)
 deriving via (Costar ((->) m)) instance Closed (Fmt m)
 deriving via (Costar ((->) m)) instance Costrong (Fmt m)
 deriving via (Costar ((->) m)) instance Cochoice (Fmt m)
+instance Cosieve (Fmt m) ((->) m) where
+    cosieve (Fmt f) g = f g
+
+instance Corepresentable (Fmt m) where
+    type Corep (Fmt m) = (->) m
+    cotabulate f = Fmt f
 
 instance (IsString m, a ~ b) => IsString (Fmt m a b) where
     fromString = fmt . fromString

@@ -57,6 +57,7 @@ test-suite props
 
   other-modules:
       Test.Prop.Fixed
+      Test.Prop.Fuse
       Test.Prop.Functor
       Test.Prop.Tree
       Test.Prop.Fmt

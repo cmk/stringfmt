@@ -58,6 +58,9 @@ module Data.Fmt.Tree (
     unAnnotate,
     alterAnnotations,
 
+    -- * Fusion
+    fuse,
+
     -- * Tokens
     Token (..),
 
@@ -342,6 +345,31 @@ alterAnnotations f = fold $ \case
     Union a b -> wrap (Union a b)
     Column k -> wrap (Column k)
     Nesting k -> wrap (Nesting k)
+
+---------------------------------------------------------------------
+-- Fusion
+---------------------------------------------------------------------
+
+-- | Merge adjacent 'Leaf' nodes and collapse nested 'Nest'.
+--
+-- This is a semantic no-op — the rendered output is identical —
+-- but reduces tree size for more efficient layout.
+--
+-- Operates as a fold (catamorphism). Does not recurse into
+-- 'Column'/'Nesting' functions.
+--
+-- @pretty opts (fuse doc) = pretty opts doc@
+fuse :: Semigroup m => Tree m ann -> Tree m ann
+fuse = fold $ \case
+    -- Merge adjacent leaves: Cat (Leaf n1 m1) (Leaf n2 m2) → Leaf (n1+n2) (m1<>m2)
+    Cat x y -> case (unwrap x, unwrap y) of
+        (Leaf n1 m1, Leaf n2 m2) -> wrap (Leaf (n1 + n2) (m1 <> m2))
+        _ -> wrap (Cat x y)
+    -- Collapse nested Nest: Nest i (Nest j x) → Nest (i+j) x
+    Nest i x -> case unwrap x of
+        Nest j inner -> wrap (Nest (i + j) inner)
+        _ -> wrap (Nest i x)
+    other -> wrap other
 
 ---------------------------------------------------------------------
 -- Tokens

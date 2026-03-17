@@ -73,7 +73,9 @@ module Data.Fmt.Fixed (
     comutu,
 
     -- * Natural transformations
-    hoist,
+    hoistMu,
+    hoistFix,
+    hoistNu,
     comap,
     contramap,
     prepro,
@@ -94,8 +96,7 @@ module Data.Fmt.Fixed (
 import Data.Bifoldable (Bifoldable (..))
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bitraversable (Bitraversable (..))
-import Data.Fix (Fix (..))
-import Data.Fix (Mu (..), Nu (..))
+import Data.Fix (Fix (..), Mu (..), Nu (..), hoistFix, hoistMu, hoistNu)
 import qualified Data.Fix as F
 import Control.Monad ((<=<), join)
 
@@ -314,12 +315,6 @@ comutu psi' psi = unfold (fromEither . bimap (fmap swapEither . psi') psi) . Rig
 -- Natural transformations
 ---------------------------------------------------------------------
 
--- | Change the base functor via a natural transformation.
--- Does not require @Functor f@.
-{-# INLINE hoist #-}
-hoist :: (forall a. f a -> g a) -> Mu f -> Mu g
-hoist = F.hoistMu
-
 -- | Map over the first type parameter of a 'Bifunctor' base functor
 -- via anamorphism: project, transform, re-embed.
 --
@@ -337,11 +332,11 @@ contramap g = fold (wrap . first g)
 
 -- | Fokkinga's prepromorphism.
 prepro :: Functor f => (forall a. f a -> f a) -> Algebra f c -> Mu f -> c
-prepro e alg = go where go = alg . fmap (go . hoist e) . unwrap
+prepro e alg = go where go = alg . fmap (go . hoistMu e) . unwrap
 
 -- | Fokkinga's postpromorphism.
 postpro :: Functor f => (forall a. f a -> f a) -> Coalgebra f r -> r -> Mu f
-postpro e coalg = go where go = wrap . fmap (hoist e . go) . coalg
+postpro e coalg = go where go = wrap . fmap (hoistMu e . go) . coalg
 
 -- | Effectful 'hoist': sequence effects while transforming layers.
 transverse :: (Functor f, Functor g) => (forall a. f (g a) -> g (f a)) -> Mu f -> g (Mu f)

@@ -117,7 +117,7 @@ prop_P150_yoneda_fusion = property $ do
         dbl Nil = Nil
         dbl (Cons a r) = Cons (a * 2) r
         -- Two hoists = 2 traversals
-        direct = hoist inc (hoist dbl xs)
+        direct = hoistMu inc (hoistMu dbl xs)
         -- Via Yoneda = 1 traversal (composed nat trans)
         fused = lowerYonedaFix (mapYonedaFix inc (mapYonedaFix dbl (liftYonedaFix xs)))
     toList direct === toList fused

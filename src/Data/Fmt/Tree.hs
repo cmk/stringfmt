@@ -73,7 +73,7 @@ module Data.Fmt.Tree (
     pretty,
 ) where
 
-import Data.Fmt.Fixed (Mu, fold, hoist, unwrap, wrap)
+import Data.Fmt.Fixed (Mu, fold, hoistMu, unwrap, wrap)
 import Data.Fmt.Functor (FmtF (..), Tree)
 import Data.String (IsString (..))
 
@@ -304,7 +304,7 @@ fillBreak n d = width d $ \w ->
 
 -- | Map over annotations.
 reAnnotate :: (ann -> ann') -> Tree m ann -> Tree m ann'
-reAnnotate f = hoist go
+reAnnotate f = hoistMu go
   where
     go Fail = Fail
     go Empty = Empty

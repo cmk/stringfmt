@@ -77,13 +77,13 @@ prop_P03_fold_fusion = property $ do
         rhs = alg (fmap (fold alg) (unwrap xs))
     lhs === rhs
 
--- P4: hoist id = id
+-- P4: hoistMu id = id
 prop_P04_hoist_id :: Property
 prop_P04_hoist_id = property $ do
     xs <- forAllList genList
-    toList (hoist id xs) === toList xs
+    toList (hoistMu id xs) === toList xs
 
--- P5: hoist (n . m) = hoist n . hoist m
+-- P5: hoistMu (n . m) = hoistMu n . hoistMu m
 prop_P05_hoist_compose :: Property
 prop_P05_hoist_compose = property $ do
     xs <- forAllList genList
@@ -93,7 +93,7 @@ prop_P05_hoist_compose = property $ do
         m :: ListF Int r -> ListF Int r
         m NilF = NilF
         m (ConsF a r) = ConsF (a * 2) r
-    toList (hoist (n . m) xs) === toList (hoist n (hoist m xs))
+    toList (hoistMu (n . m) xs) === toList (hoistMu n (hoistMu m xs))
 
 -- P6: refold alg coalg = fold alg . unfold coalg
 prop_P06_refold_coherence :: Property

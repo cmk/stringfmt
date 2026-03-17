@@ -245,7 +245,7 @@ mapYonedaFix n (YonedaFix m t) = YonedaFix (n . m) t
 -- >>> toList (lowerYonedaFix (mapYonedaFix inc (mapYonedaFix inc (liftYonedaFix xs))))
 -- [3,4,5]
 lowerYonedaFix :: YonedaFix f g -> Mu g
-lowerYonedaFix (YonedaFix n t) = hoist n t
+lowerYonedaFix (YonedaFix n t) = hoistMu n t
 
 ---------------------------------------------------------------------
 -- Codensity

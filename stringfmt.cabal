@@ -46,6 +46,7 @@ library
     , data-fix           >= 0.3
     , kan-extensions
     , profunctors
+    , scheme-extensions
     , text
     , transformers
 

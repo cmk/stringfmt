@@ -25,11 +25,13 @@ library
       Data.Fmt.Functor
       Data.Fmt.Fixed
       Data.Fmt.ByteString
+      Data.Fmt.ByteString.Lazy
       Data.Fmt.Kan
       Data.Fmt.Cons
       Data.Fmt.Code
       Data.Fmt.String
       Data.Fmt.Text
+      Data.Fmt.Text.Lazy
       Data.Fmt.Tree
       Data.Fmt.Type
 

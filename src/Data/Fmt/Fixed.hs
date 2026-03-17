@@ -79,6 +79,11 @@ module Data.Fmt.Fixed (
     transverse,
     cotransverse,
 
+    -- * Streaming metamorphisms
+    stream,
+    astream,
+    gstream,
+
     -- * Wrapping and unwrapping
     wrap,
     unwrap,
@@ -330,8 +335,72 @@ cotransverse :: (Functor f, Functor g) => (forall a. g (f a) -> f (g a)) -> g (M
 cotransverse n = unfold (n . fmap unwrap)
 
 ---------------------------------------------------------------------
--- Wrapping and unwrapping
+-- Streaming metamorphisms (Gibbons)
+--
+-- Generic over the base functor f. A streaming metamorphism
+-- interleaves production (unfold) and consumption (fold) so
+-- that output can be emitted before all input is consumed.
+--
+-- These take project/embed functions as parameters, so they
+-- work with any fixed-point type (Mu, Fix, Nu) or even plain
+-- Haskell types like lists.
 ---------------------------------------------------------------------
+
+-- | Core streaming metamorphism engine.
+--
+-- At each step: try to produce output from the current state
+-- via @process@. If that succeeds, embed the output and continue.
+-- If it fails, project the next input layer via @accum@.
+--
+-- Generic over:
+-- * @g@ — input base functor (projected via first argument)
+-- * @f@ — output base functor (embedded via second argument)
+-- * @i@, @o@ — input/output types (any fixed point, or plain types)
+stream
+    :: Functor f
+    => (i -> g i)                      -- ^ project input
+    -> (f o -> o)                      -- ^ embed output
+    -> (state -> Maybe (f state))      -- ^ @process@: try to produce
+    -> (state -> ((state -> state) -> i -> o) -> g i -> o)
+                                       -- ^ @accum@: consume next input
+    -> state -> i -> o
+stream proj emb process accum = go
+  where
+    go state input =
+        maybe
+            (accum state (\f -> go (f state)) (proj input))
+            (emb . fmap (`go` input))
+            $ process state
+
+-- | Streaming anamorphism: accumulator always consumes.
+astream
+    :: Functor f
+    => (i -> g i)                      -- ^ project input
+    -> (f o -> o)                      -- ^ embed output
+    -> (state -> Maybe (f state))      -- ^ @process@: try to produce
+    -> (g i -> Pair (state -> state) i)
+                                       -- ^ @accum@: consume, return state update + rest
+    -> state -> i -> o
+astream proj emb process accum = stream proj emb process $
+    \_state cont -> uncurryPair cont . accum
+
+-- | Streaming generalized apomorphism: when input is exhausted,
+-- drain the remaining state via a flush coalgebra.
+gstream
+    :: Functor f
+    => (i -> g i)                      -- ^ project input
+    -> (f o -> o)                      -- ^ embed output
+    -> (state -> f state)              -- ^ @flush@: drain remaining state
+    -> (state -> Maybe (f state))      -- ^ @process@: try to produce
+    -> (g i -> Maybe (Pair (state -> state) i))
+                                       -- ^ @accum@: try to consume
+    -> state -> i -> o
+gstream proj emb flush process accum = stream proj emb process $
+    \state cont -> maybe (drain emb flush state) (uncurryPair cont) . accum
+  where
+    drain e coalg = go where go = e . fmap go . coalg
+
+
 
 -- | Inject one layer into the fixed point.
 {-# INLINE wrap #-}

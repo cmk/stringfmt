@@ -6,6 +6,7 @@ module Test.Prop.Cons (tests) where
 import Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+import Prelude hiding (iterate, repeat)
 
 import Data.Fmt.Cons
 import Data.Fmt.Fixed
@@ -93,11 +94,8 @@ prop_P79_fstream_id = property $ do
     xs <- forAll $ Gen.list (Range.linear 0 20) (Gen.int (Range.linear 0 100))
     let input = fromList xs
         -- Accumulate into a list, flush by emitting
-        result = fstream
-            (\case [] -> Nil; (a : as) -> Cons a as)  -- flush
-            (\acc b -> acc ++ [b])                     -- consume
-            (\case [] -> Nil; (a : as) -> Cons a as)  -- flush (same)
-            [] input
+        flush = \case [] -> Nil; (a : as) -> Cons a as
+        result = fstream unwrap wrap flush (\acc b -> acc ++ [b]) flush [] input
     toList result === xs
 
 -- P80: fstream can transform elements
@@ -105,11 +103,8 @@ prop_P80_fstream_map :: Property
 prop_P80_fstream_map = property $ do
     xs <- forAll $ Gen.list (Range.linear 0 20) (Gen.int (Range.linear 0 100))
     let input = fromList xs
-        result = fstream
-            (\case [] -> Nil; (a : as) -> Cons a as)
-            (\acc b -> acc ++ [b + 1])
-            (\case [] -> Nil; (a : as) -> Cons a as)
-            [] input
+        flush = \case [] -> Nil; (a : as) -> Cons a as
+        result = fstream unwrap wrap flush (\acc b -> acc ++ [b + 1]) flush [] input
     toList result === map (+ 1) xs
 
 -- P81: elgot terminates early
@@ -241,3 +236,28 @@ prop_P90_zip_algebras = property $ do
         pair = fold (zipAlgebras sumAlg lenAlg) xs
     pairFst pair === sum (toList xs)
     pairSnd pair === length (toList xs)
+
+-- P171: iterate produces correct sequence (via Nu -> Mu conversion)
+prop_P171_iterate :: Property
+prop_P171_iterate = property $ do
+    n <- forAll $ Gen.int (Range.linear 0 100)
+    -- Take first 5 elements of iterate (+1) n
+    let nu = iterate (+ 1) n
+        -- Convert Nu to list by folding: unfold then take
+        take5 = take 5 . nuToList
+        nuToList (Nu step seed) = go seed
+          where go s = case step s of
+                    Nil -> []
+                    Cons a s' -> a : go s'
+    take5 nu === [n, n+1, n+2, n+3, n+4]
+
+-- P172: repeat produces constant stream
+prop_P172_repeat :: Property
+prop_P172_repeat = property $ do
+    n <- forAll $ Gen.int (Range.linear 0 100)
+    let nu = repeat n
+        take5 (Nu step seed) = take 5 (go seed)
+          where go s = case step s of
+                    Nil -> []
+                    Cons a s' -> a : go s'
+    take5 nu === [n, n, n, n, n]

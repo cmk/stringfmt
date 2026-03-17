@@ -78,11 +78,12 @@ module Data.Fmt.Cons (
     ConsAlgebraM,
     ConsCoalgebraM,
 
-    -- * Streaming metamorphisms (Gibbons)
-    stream,
-    astream,
-    gstream,
+    -- * Streaming metamorphisms (Cons-specialized)
     fstream,
+
+    -- * Nu-based iteration
+    iterate,
+    repeat,
 ) where
 
 import Control.Applicative (Alternative (..))
@@ -94,7 +95,7 @@ import Data.Function ((&))
 import Data.Functor.Classes (Eq1 (..), Ord1 (..), Show1 (..))
 import Data.Functor.Identity (Identity (..), runIdentity)
 import GHC.Show (showList__)
-import Prelude
+import Prelude hiding (iterate, repeat)
 
 ---------------------------------------------------------------------
 -- Pattern functor
@@ -367,78 +368,58 @@ seqEither :: (b -> Cons a b) -> Distribute (Either b) (Cons a)
 seqEither psi = fromEither . bimap (fmap Left . psi) (fmap Right)
 
 ---------------------------------------------------------------------
--- Streaming metamorphisms (Gibbons)
+-- Streaming metamorphisms (Cons-specialized)
 --
--- A metamorphism is a fold followed by an unfold. The streaming
--- variants interleave accumulation (fold) and production (unfold)
--- so that output can be emitted before all input is consumed.
+-- The generic stream/astream/gstream live in Data.Fmt.Fixed.
+-- fstream adds the Cons-specific element decomposition.
 ---------------------------------------------------------------------
 
--- | Core streaming metamorphism engine.
+-- | Gibbons' streaming metamorphism, specialized to 'Cons'.
 --
--- At each step: try to produce output from the current state via
--- @process@. If that succeeds, emit the output and continue. If it
--- fails, consume the next input element via @accum@.
-stream
-    :: (state -> Maybe (Cons a state))
-    -- ^ @process@: try to produce an output element
-    -> (state -> ((state -> state) -> Mu (Cons b) -> Mu (Cons a)) -> Cons b (Mu (Cons b)) -> Mu (Cons a))
-    -- ^ @accum@: consume next input, given a continuation
-    -> state -> Mu (Cons b) -> Mu (Cons a)
-stream process accum = go
-  where
-    go state input =
-        maybe
-            (accum state (\f -> go (f state)) (unwrap input))
-            (wrap . fmap (`go` input))
-            $ process state
-
--- | Streaming anamorphism: accumulator always consumes.
-astream
-    :: (state -> Maybe (Cons a state))
-    -- ^ @process@: try to produce output
-    -> (Cons b (Mu (Cons b)) -> Pair (state -> state) (Mu (Cons b)))
-    -- ^ @accum@: consume input element
-    -> state -> Mu (Cons b) -> Mu (Cons a)
-astream process accum = stream process $
-    \_state cont -> uncurryPair cont . accum
-
--- | Streaming generalized apomorphism: when input is exhausted,
--- drain the remaining state via a flush coalgebra.
-gstream
-    :: (state -> Cons a state)
-    -- ^ @flush@: drain remaining state when input is exhausted
-    -> (state -> Maybe (Cons a state))
-    -- ^ @process@: try to produce output
-    -> (Cons b (Mu (Cons b)) -> Maybe (Pair (state -> state) (Mu (Cons b))))
-    -- ^ @accum@: try to consume input element
-    -> state -> Mu (Cons b) -> Mu (Cons a)
-gstream flush process accum = stream process $
-    \state cont -> maybe (unfold flush state) (uncurryPair cont) . accum
-
--- | Gibbons' streaming metamorphism.
---
--- Parameterized by produce, consume, and flush:
---
--- @fstream produce consume flush@ transforms a @Mu (Cons b)@ into a
--- @Mu (Cons a)@ by interleaving:
+-- Parameterized by produce, consume, and flush. Transforms
+-- an input structure into an output by interleaving:
 --
 -- * @produce@: try to emit output from the accumulator state
 -- * @consume@: fold the next input element into the state
 -- * @flush@: drain remaining state when input is exhausted
+--
+-- Generic over the fixed-point types @i@ and @o@:
+--
+-- @
+-- fstream unwrap wrap produce consume flush  -- Mu -> Mu
+-- fstream unwrapNu wrapMu produce consume flush  -- Nu -> Mu
+-- @
 fstream
-    :: (state -> Cons a state)
-    -- ^ @produce@: unfold output from state
-    -> (state -> b -> state)
-    -- ^ @consume@: fold an input element into the state
-    -> (state -> Cons a state)
-    -- ^ @flush@: drain remaining state when input is exhausted
-    -> state -> Mu (Cons b) -> Mu (Cons a)
-fstream f g h =
-    gstream h
-        (\s -> case f s of
+    :: (i -> Cons b i)          -- ^ project input
+    -> (Cons a o -> o)          -- ^ embed output
+    -> (state -> Cons a state)  -- ^ @produce@: unfold output from state
+    -> (state -> b -> state)    -- ^ @consume@: fold an input element into state
+    -> (state -> Cons a state)  -- ^ @flush@: drain remaining state
+    -> state -> i -> o
+fstream proj emb produce consume flush =
+    gstream proj emb flush
+        (\s -> case produce s of
             Nil -> Nothing
             other -> Just other)
         (\case
             Nil -> Nothing
-            Cons a x' -> Just (flip g a :!: x'))
+            Cons a x' -> Just (flip consume a :!: x'))
+
+---------------------------------------------------------------------
+-- Nu-based iteration
+---------------------------------------------------------------------
+
+-- | Apply a pure function ad infinitum, producing an infinite stream.
+--
+-- @iterate f x = [x, f x, f (f x), ...]@
+--
+-- Uses 'Nu' (greatest fixed point) because the result is codata —
+-- a potentially infinite stream that is consumed lazily.
+iterate :: (a -> a) -> a -> Nu (Cons a)
+iterate f = Nu (\a -> Cons a (f a))
+
+-- | Repeat a value ad infinitum.
+--
+-- @repeat x = [x, x, x, ...]@
+repeat :: a -> Nu (Cons a)
+repeat = iterate id

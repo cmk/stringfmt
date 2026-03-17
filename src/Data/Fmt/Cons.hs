@@ -105,7 +105,7 @@ import Prelude hiding (iterate, repeat)
 --
 -- Isomorphic to @Maybe (a, b)@. @Mu (Cons a)@ is a
 -- Church-encoded list.
-data Cons a b = Nil | Cons a b
+data Cons a b = Nil | Cons !a b
     deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Bifunctor Cons where

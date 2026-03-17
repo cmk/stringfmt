@@ -68,12 +68,18 @@ module Data.Fmt.Tree (
     layoutPretty,
     layoutCompact,
 
+    -- * Streaming layout
+    layoutStream,
+    renderStream,
+    prettyStream,
+
     -- * Rendering
     render,
     pretty,
 ) where
 
-import Data.Fmt.Fixed (Mu, fold, hoistMu, unwrap, wrap)
+import Data.Fmt.Cons (Cons (..))
+import Data.Fmt.Fixed (Mu, Nu (..), fold, hoistMu, unwrap, wrap)
 import Data.Fmt.Functor (FmtF (..), Tree)
 import Data.String (IsString (..))
 
@@ -438,6 +444,85 @@ layoutCompact doc = go 0 [doc]
         Ann a x -> TAnnPush a : go cc (x : rest) -- no pop tracking in compact
         Column f -> go cc (f cc : rest)
         Nesting f -> go cc (f 0 : rest)
+
+---------------------------------------------------------------------
+-- Streaming layout
+---------------------------------------------------------------------
+
+-- | Wadler/Leijen layout producing a 'Nu' stream.
+--
+-- Unlike 'layoutPretty' which materializes a @[Token]@ list,
+-- 'layoutStream' produces a @Nu (Cons (Token m ann))@ — a seed
+-- + step function that generates tokens lazily on demand.
+-- Construction is O(1); tokens are computed as they are consumed.
+layoutStream :: LayoutOptions -> Tree m ann -> Nu (Cons (Token m ann))
+layoutStream opts doc = Nu step (0, [CDoc 0 doc])
+  where
+    pageWidth = case layoutPageWidth opts of
+        AvailablePerLine w _ -> w
+        Unbounded -> maxBound
+
+    step :: (Int, [Cmd m ann]) -> Cons (Token m ann) (Int, [Cmd m ann])
+    step (_, []) = Nil
+    step (cc, CPopAnn : rest) = Cons (TAnnPop) (cc, rest)
+    step (cc, CDoc i d : rest) = case unwrap d of
+        Fail -> Nil
+        Empty -> step (cc, rest)
+        Leaf len m -> Cons (TLeaf len m) (cc + len, rest)
+        Cat x y -> step (cc, CDoc i x : CDoc i y : rest)
+        Line -> Cons (TLine i) (i, rest)
+        FlatAlt x _ -> step (cc, CDoc i x : rest)
+        Nest j x -> step (cc, CDoc (i + j) x : rest)
+        Union x y ->
+            -- Speculative evaluation: try the flat branch via list-based
+            -- layout. If it fits, commit to the flat branch; otherwise
+            -- continue streaming with the narrow branch.
+            case bestList cc (CDoc i x : rest) of
+                Just flatTokens | fits (pageWidth - cc) flatTokens ->
+                    step (cc, CDoc i x : rest)
+                _ -> step (cc, CDoc i y : rest)
+        Ann a x -> Cons (TAnnPush a) (cc, CDoc i x : CPopAnn : rest)
+        Column f -> step (cc, CDoc i (f cc) : rest)
+        Nesting f -> step (cc, CDoc i (f i) : rest)
+
+    -- Reuse the list-based layout for Union speculative evaluation
+    bestList :: Int -> [Cmd m ann] -> Maybe [Token m ann]
+    bestList _ [] = Just []
+    bestList cc' (CPopAnn : rest') = (TAnnPop :) <$> bestList cc' rest'
+    bestList cc' (CDoc i' d' : rest') = case unwrap d' of
+        Fail -> Nothing
+        Empty -> bestList cc' rest'
+        Leaf len m -> (TLeaf len m :) <$> bestList (cc' + len) rest'
+        Cat x y -> bestList cc' (CDoc i' x : CDoc i' y : rest')
+        Line -> (TLine i' :) <$> bestList i' rest'
+        FlatAlt x _ -> bestList cc' (CDoc i' x : rest')
+        Nest j x -> bestList cc' (CDoc (i' + j) x : rest')
+        Union x y -> case bestList cc' (CDoc i' x : rest') of
+            Just flatTokens | fits (pageWidth - cc') flatTokens -> Just flatTokens
+            _ -> bestList cc' (CDoc i' y : rest')
+        Ann a x -> (TAnnPush a :) <$> bestList cc' (CDoc i' x : CPopAnn : rest')
+        Column f -> bestList cc' (CDoc i' (f cc') : rest')
+        Nesting f -> bestList cc' (CDoc i' (f i') : rest')
+
+    tokenWidth (TLeaf len _) = len
+    tokenWidth _ = 0
+
+-- | Render a 'Nu' token stream to the output monoid.
+renderStream :: (Monoid m, IsString m) => Nu (Cons (Token m ann)) -> m
+renderStream (Nu step seed) = go seed
+  where
+    go s = case step s of
+        Nil -> mempty
+        Cons (TLeaf _ m) s' -> m <> go s'
+        Cons (TLine i) s' -> fromString ('\n' : replicate i ' ') <> go s'
+        Cons (TAnnPush _) s' -> go s'
+        Cons (TAnnPop) s' -> go s'
+
+-- | Streaming layout + render.
+--
+-- @prettyStream opts = renderStream . layoutStream opts@
+prettyStream :: (Monoid m, IsString m) => LayoutOptions -> Tree m ann -> m
+prettyStream opts = renderStream . layoutStream opts
 
 ---------------------------------------------------------------------
 -- Rendering

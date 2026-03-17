@@ -13,6 +13,7 @@ import qualified Test.Prop.Cons as Cons
 import qualified Test.Prop.Code as Code
 import qualified Test.Prop.Kan as Kan
 import qualified Test.Prop.Layout as Layout
+import qualified Test.Prop.Stream as Stream
 import qualified Test.Prop.Text as Text
 import qualified Test.Prop.Wadler as Wadler
 
@@ -30,6 +31,7 @@ main = do
         , Code.tests
         , Kan.tests
         , Layout.tests
+        , Stream.tests
         , Text.tests
         , Wadler.tests
         ]

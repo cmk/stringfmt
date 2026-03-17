@@ -67,6 +67,7 @@ test-suite props
       Test.Prop.Cons
       Test.Prop.Code
       Test.Prop.Layout
+      Test.Prop.Stream
       Test.Prop.Text
       Test.Prop.Wadler
 

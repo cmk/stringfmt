@@ -156,3 +156,46 @@ After profunctor-optics-strings exists:
 - Text.Builder variants produce correct output
 - profunctor-optics-strings cotraversals compose with Fmt
 - ByteString/Text round-trip through cotraversals
+
+## Future: extract recursion scheme package (data-fix-schemes or similar)
+
+Once stringfmt dust settles (~2-8 sprints), consider splitting the
+generic recursion scheme + streaming + Kan infrastructure into an
+upstream package. The boundary:
+
+**Upstream (generic, not formatting-specific):**
+- Extended scheme zoo on data-fix's Mu/Fix/Nu: foldWithContext,
+  foldWithAux, foldGen, unfoldShort, unfoldGen, refoldGen, foldM,
+  refoldM, elgot, coelgot, mutu, comutu, prepro, postpro,
+  transverse, cotransverse, comap, contramap (Bifunctor)
+- Streaming metamorphisms: stream, astream, gstream (generic over
+  base functor and fixed-point type)
+- Cons pattern functor + fstream, iterate, repeat, toList, fromList,
+  all combinators, distributive law specializations
+- Pair type + distributive laws (Distribute, lowerAlgebra, etc.)
+- Algebra type aliases
+- Kan connections: equalDay, compareDay, recursiveEq/Ord (Day for
+  structural comparison), YonedaFix (hoist fusion), foldMCodensity,
+  codensityToState/stateToCodensity
+
+**Stays in stringfmt (formatting-specific):**
+- Fmt type + Cosieve/Corepresentable instances
+- FmtF pattern functor, Tree type alias
+- Pretty-printer API (smart constructors, combinators, layout, render)
+- ByteString/Text/String output modules
+- Code (numeric encoders)
+- fmtDay (Fmt-specific Day connection)
+
+**Why Fmt stays in stringfmt, not upstream:**
+Fmt m = Costar ((->) m) — the profunctor instances are trivial
+(cosieve = unFmt, cotabulate = Fmt). The value is in the ecosystem
+built on top of it, not the type itself. Coindex a b s = Fmt s b a
+(profunctor args swapped) lives in profunctor-optics for the colens
+carrier story. Both are thin wrappers over Costar ((->) m) and don't
+need their own package.
+
+**Why not just depend on recursion-schemes:**
+recursion-schemes uses the Recursive/Corecursive typeclass approach.
+We commit to Mu everywhere, explicit scheme functions, no typeclass
+dispatch. The streaming metamorphisms, Kan connections, and extended
+zoo are unique value adds not available in recursion-schemes.

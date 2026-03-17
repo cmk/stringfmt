@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Church-encoded fixed point with recursion schemes.
 --
@@ -82,7 +84,8 @@ module Data.Fmt.Fixed (
 import Data.Bifoldable (Bifoldable (..))
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bitraversable (Bitraversable (..))
--- import Data.Functor.Identity (Identity (..), runIdentity)
+import Data.Function (on)
+import Data.Functor.Classes (Eq1 (..), Ord1 (..), Show1 (..))
 import Control.Monad ((<=<), join)
 
 ---------------------------------------------------------------------
@@ -101,6 +104,38 @@ import Control.Monad ((<=<), join)
 -- representation differs (CPS vs explicit recursion) but the
 -- universal property is the same.
 newtype Fix f = Fix {unFix :: forall a. (f a -> a) -> a}
+
+-- | Explicit fixed point for structural comparison.
+--
+-- Church-encoded 'Fix' cannot be compared directly (each
+-- 'unwrap' is a full fold). We convert to 'Explicit' first
+-- in O(n), then compare/show structurally in O(n).
+--
+-- This is the Day convolution approach in disguise: 'liftEq'
+-- pairs up corresponding elements from two @f@-layers —
+-- exactly @Day f f Bool@ with equality as the combiner.
+newtype Explicit f = Explicit (f (Explicit f))
+
+toExplicit :: Functor f => Fix f -> Explicit f
+toExplicit = fold Explicit
+
+instance Eq1 f => Eq (Explicit f) where
+    Explicit x == Explicit y = liftEq (==) x y
+
+instance Ord1 f => Ord (Explicit f) where
+    compare (Explicit x) (Explicit y) = liftCompare compare x y
+
+instance Show1 f => Show (Explicit f) where
+    showsPrec d (Explicit x) = liftShowsPrec showsPrec showList d x
+
+instance (Functor f, Eq1 f) => Eq (Fix f) where
+    (==) = (==) `on` toExplicit
+
+instance (Functor f, Ord1 f) => Ord (Fix f) where
+    compare = compare `on` toExplicit
+
+instance (Functor f, Show1 f) => Show (Fix f) where
+    showsPrec d = showsPrec d . toExplicit
 
 ---------------------------------------------------------------------
 -- Strict pair

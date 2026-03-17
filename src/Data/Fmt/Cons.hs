@@ -91,7 +91,7 @@ import Data.Bifunctor (Bifunctor (..))
 import Data.Bitraversable (Bitraversable (..))
 import Data.Fmt.Fixed
 import Data.Function ((&))
-import Data.Functor.Classes (Show1 (..))
+import Data.Functor.Classes (Eq1 (..), Ord1 (..), Show1 (..))
 import Data.Functor.Identity (Identity (..), runIdentity)
 import GHC.Show (showList__)
 import Prelude
@@ -138,6 +138,17 @@ instance (Semigroup a, Semigroup b) => Semigroup (Cons a b) where
 
 instance (Semigroup a, Semigroup b) => Monoid (Cons a b) where
     mempty = Nil
+
+instance Eq a => Eq1 (Cons a) where
+    liftEq _ Nil Nil = True
+    liftEq eq (Cons a1 b1) (Cons a2 b2) = a1 == a2 && eq b1 b2
+    liftEq _ _ _ = False
+
+instance Ord a => Ord1 (Cons a) where
+    liftCompare _ Nil Nil = EQ
+    liftCompare _ Nil _ = LT
+    liftCompare _ _ Nil = GT
+    liftCompare cmp (Cons a1 b1) (Cons a2 b2) = compare a1 a2 <> cmp b1 b2
 
 instance Show a => Show1 (Cons a) where
     liftShowsPrec _ _ _ Nil = showString "Nil"

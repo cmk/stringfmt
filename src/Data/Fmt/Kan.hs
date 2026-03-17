@@ -45,6 +45,8 @@ module Data.Fmt.Kan (
     stateToCodensity,
     codensityToStateT,
     stateTToCodensity,
+    -- codensityToComposedRep and composedRepToCodensity
+    -- are re-exported via module Control.Monad.Codensity
 
     -- * Re-exports
     module Data.Functor.Day,
@@ -57,7 +59,7 @@ module Data.Fmt.Kan (
 ) where
 
 import Control.Comonad.Density
-import Control.Monad.Codensity
+import Control.Monad.Codensity hiding (improve)
 import Control.Monad.Trans.State.Strict (StateT (..))
 import Data.Foldable (toList)
 import Data.Fmt.Cons (Cons (..))

@@ -71,22 +71,6 @@ import Data.Functor.Yoneda
 -- Day convolution
 ---------------------------------------------------------------------
 
--- | Lower a Day-algebra into a regular algebra by pairing
--- context with one unwrapped layer.
---
--- @lowerDay alg ctx t@ pairs @ctx@ with each layer of @t@
--- (via 'unwrap') to form a 'Day' value, then applies @alg@.
---
--- This is the bridge between Day convolution and recursion
--- schemes: it lets you fold two structures in parallel.
---
--- >>> import Data.Fmt.Cons
--- >>> let alg (Day Nil _ _) = 0; alg (Day (Cons a r) y k) = k r y + a
--- >>> lowerDay alg (Cons 10 20) (fromList [1, 2, 3 :: Int])
--- -- pairs context (Cons 10 20) with each layer of [1,2,3]
---
--- __Connection:__ @lowerDay@ internalizes the Day convolution
--- pairing into a catamorphism-compatible algebra.
 -- | Structural equality via Day convolution.
 --
 -- Pairs up two @f@-layers element-by-element and checks that:
@@ -96,9 +80,12 @@ import Data.Functor.Yoneda
 -- This is 'liftEq' decomposed into its Day components:
 -- @Day f f Bool@ is "two layers paired with a boolean combiner".
 --
+-- >>> import Data.Fmt.Kan
 -- >>> import Data.Fmt.Cons
+-- >>> import Data.Functor.Classes
 -- >>> equalDay (liftEq (==)) (Day (Cons 1 True) (Cons 1 True) (&&))
 -- True
+-- >>> import Data.Functor.Classes
 -- >>> equalDay (liftEq (==)) (Day (Cons 1 True) (Cons 2 True) (&&))
 -- False
 --
@@ -115,6 +102,7 @@ equalDay (Day f1 f2 fn) =
 --
 -- Like 'equalDay' but produces an 'Ordering'.
 --
+-- >>> import Data.Fmt.Kan
 -- >>> import Data.Fmt.Cons
 -- >>> compareDay (Day (Cons 1 EQ) (Cons 2 EQ) (<>))
 -- LT
@@ -132,6 +120,7 @@ compareDay (Day f1 f2 fn) =
 -- convolution. Equivalent to @(==)@ from the @Eq (Mu f)@
 -- instance, but expressed explicitly via Day.
 --
+-- >>> import Data.Fmt.Kan
 -- >>> import Data.Fmt.Cons
 -- >>> recursiveEq (fromList [1,2,3 :: Int]) (fromList [1,2,3])
 -- True
@@ -145,6 +134,7 @@ recursiveEq x y = equalDay (Day (unwrap x) (unwrap y) (\a b -> recursiveEq a b))
 
 -- | Recursive ordering via Day convolution.
 --
+-- >>> import Data.Fmt.Kan
 -- >>> import Data.Fmt.Cons
 -- >>> recursiveOrd (fromList [1,2,3 :: Int]) (fromList [1,2,4])
 -- LT
@@ -157,10 +147,12 @@ recursiveOrd x y = compareDay (Day (unwrap x) (unwrap y) (\a b -> recursiveOrd a
 -- factor, @Fmt2@ is two, etc.
 --
 -- >>> import Data.Fmt
+-- >>> import Data.Fmt.Kan
 -- >>> let f = fmt "hello" :: Fmt String String String
 -- >>> let g = fmt " world" :: Fmt String String String
 -- >>> let d = fmtDay f g
--- >>> dap d  -- collapse Day via Applicative
+-- >>> dap d ""
+-- "hello world"
 -- "hello world"
 --
 -- __Connection:__ @(%)@ is @dap . fmtDay@ — it constructs
@@ -172,7 +164,9 @@ recursiveOrd x y = compareDay (Day (unwrap x) (unwrap y) (\a b -> recursiveOrd a
 -- "Data.Functor.Day" recovers the combined result.
 --
 -- >>> import Data.Fmt
--- >>> dap (fmtDay (fmt "hello ") (fmt "world")) (++)
+-- >>> import Data.Fmt.Kan
+-- >>> dap (fmtDay (fmt "hello " :: Fmt String String String) (fmt "world")) ""
+-- "hello world"
 -- "hello world"
 --
 -- __Connection:__ each @Fmt m@ is @Costar ((->) m)@, and
@@ -220,6 +214,7 @@ data YonedaFix f g = YonedaFix (forall a. f a -> g a) (Mu f)
 
 -- | Lift a 'Fix' into 'YonedaFix' with the identity transformation.
 --
+-- >>> import Data.Fmt.Kan
 -- >>> import Data.Fmt.Cons
 -- >>> let xs = fromList [1, 2, 3 :: Int]
 -- >>> toList (lowerYonedaFix (liftYonedaFix xs))
@@ -229,6 +224,7 @@ liftYonedaFix = YonedaFix id
 
 -- | Apply a natural transformation in O(1) (just composition).
 --
+-- >>> import Data.Fmt.Kan
 -- >>> import Data.Fmt.Cons
 -- >>> let xs = fromList [1, 2, 3 :: Int]
 -- >>> let inc Nil = Nil; inc (Cons a r) = Cons (a + 1) r
@@ -239,6 +235,7 @@ mapYonedaFix n (YonedaFix m t) = YonedaFix (n . m) t
 
 -- | Lower the accumulated transformation, performing a single traversal.
 --
+-- >>> import Data.Fmt.Kan
 -- >>> import Data.Fmt.Cons
 -- >>> let xs = fromList [1, 2, 3 :: Int]
 -- >>> let inc Nil = Nil; inc (Cons a r) = Cons (a + 1) r
@@ -261,6 +258,7 @@ lowerYonedaFix (YonedaFix n t) = hoistMu n t
 -- foldMCodensity alg = lowerCodensity . foldM (Codensity . alg)
 -- @
 --
+-- >>> import Data.Fmt.Kan
 -- >>> import Data.Fmt.Cons
 -- >>> let xs = fromList [1, 2, 3 :: Int]
 -- >>> foldMCodensity (\case Nil -> pure 0; Cons a b -> pure (a + b)) xs :: Maybe Int
@@ -287,8 +285,9 @@ foldMCodensity alg = lowerCodensity . fold go
 -- This is isomorphic to @State m a = m -> (a, m)@ — both
 -- are "computations that read and transform an @m@ environment."
 --
--- >>> codensityToState (Codensity (\k m -> k (m + 1) (m * 2))) 10
--- (11, 20)
+-- >>> import Data.Fmt.Kan
+-- >>> codensityToState (Codensity (\k m -> k (m + 1) (m * 2))) (10 :: Int)
+-- (11,20)
 --
 -- __Connection:__ @Codensity@ of a representable functor @(->) m@
 -- gives the state monad for @m@. This is because
@@ -298,7 +297,8 @@ codensityToState (Codensity f) m = f (\a m' -> (a, m')) m
 
 -- | Inverse of 'codensityToState'.
 --
--- >>> stateToCodensity (\m -> (m + 1, m * 2)) `codensityToState` 10
--- (11, 20)
+-- >>> import Data.Fmt.Kan
+-- >>> stateToCodensity (\m -> (m + 1, m * 2)) `codensityToState` (10 :: Int)
+-- (11,20)
 stateToCodensity :: (m -> (a, m)) -> Codensity ((->) m) a
 stateToCodensity f = Codensity $ \k m -> let (a, m') = f m in k a m'

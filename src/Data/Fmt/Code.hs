@@ -62,7 +62,7 @@ module Data.Fmt.Code (
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as BL
-import Data.Fmt (Fmt1, fmt1)
+import Data.Fmt.Type (Fmt1, fmt1)
 import Data.Int
 import Data.String (IsString, fromString)
 import Data.Word

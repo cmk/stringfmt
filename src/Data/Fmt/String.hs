@@ -18,7 +18,7 @@ module Data.Fmt.String (
     runStringFmt,
 ) where
 
-import Data.Fmt (Fmt (..))
+import Data.Fmt.Type (Fmt (..))
 import Data.Monoid (Endo (..))
 import Data.String (IsString (..))
 

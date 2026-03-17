@@ -29,7 +29,7 @@ module Data.Fmt.ByteString (
 ) where
 
 import Data.Foldable (toList)
-import Data.Fmt (Fmt (..), Fmt1, fmt, fmt1, (%))
+import Data.Fmt.Type (Fmt (..), Fmt1, fmt, fmt1, (%))
 import Data.ByteString (ByteString)
 import Data.ByteString.Builder (Builder, byteString, toLazyByteString)
 import qualified Data.ByteString.Char8 as B

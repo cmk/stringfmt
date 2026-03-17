@@ -27,7 +27,7 @@ module Data.Fmt.Text (
 ) where
 
 import Data.Foldable (toList)
-import Data.Fmt (Fmt (..), Fmt1, fmt, fmt1, (%))
+import Data.Fmt.Type (Fmt (..), Fmt1, fmt, fmt1, (%))
 
 import Data.Text (Text)
 import qualified Data.Text as T

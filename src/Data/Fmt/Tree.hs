@@ -58,6 +58,11 @@ module Data.Fmt.Tree (
     unAnnotate,
     alterAnnotations,
 
+    -- * Optimized group
+    FlattenResult (..),
+    changesUponFlattening,
+    group',
+
     -- * Fusion
     fuse,
 
@@ -82,7 +87,7 @@ module Data.Fmt.Tree (
 ) where
 
 import Data.Fmt.Cons (Cons (..))
-import Data.Fmt.Fixed (Mu, Nu (..), fold, hoistMu, unwrap, wrap)
+import Data.Fmt.Fixed (Mu, Nu (..), fold, foldWithContext, hoistMu, unwrap, wrap)
 import Data.Fmt.Functor (FmtF (..), Tree)
 import Data.String (IsString (..))
 
@@ -345,6 +350,64 @@ alterAnnotations f = fold $ \case
     Union a b -> wrap (Union a b)
     Column k -> wrap (Column k)
     Nesting k -> wrap (Nesting k)
+
+---------------------------------------------------------------------
+-- Optimized group
+---------------------------------------------------------------------
+
+-- | Result of checking whether flattening changes a document.
+data FlattenResult a
+    = Flattened a   -- ^ Flattening produces a different document
+    | AlreadyFlat   -- ^ Document is already flat (no FlatAlt/Line)
+    | NeverFlat      -- ^ Document can never be flattened (bare Line)
+    deriving (Show, Eq)
+
+instance Functor FlattenResult where
+    fmap f (Flattened a) = Flattened (f a)
+    fmap _ AlreadyFlat = AlreadyFlat
+    fmap _ NeverFlat = NeverFlat
+
+-- | Check whether flattening changes a document, and if so,
+-- produce the flattened version.
+--
+-- This is the key optimization for 'group'': by checking first,
+-- we avoid creating unnecessary 'Union' nodes.
+--
+-- Uses direct recursion via 'unwrap' (matching prettyprinter's
+-- approach). A zygomorphism formulation is possible but less
+-- readable.
+changesUponFlattening :: Tree m ann -> FlattenResult (Tree m ann)
+changesUponFlattening t = case unwrap t of
+    Fail -> NeverFlat
+    Empty -> AlreadyFlat
+    Leaf _ _ -> AlreadyFlat
+    Line -> NeverFlat
+    FlatAlt _ y -> Flattened (flatten y)
+    Cat x y -> case (changesUponFlattening x, changesUponFlattening y) of
+        (Flattened x', Flattened y') -> Flattened (x' <> y')
+        (Flattened x', AlreadyFlat) -> Flattened (x' <> y)
+        (AlreadyFlat, Flattened y') -> Flattened (x <> y')
+        (AlreadyFlat, AlreadyFlat) -> AlreadyFlat
+        (NeverFlat, _) -> NeverFlat
+        (_, NeverFlat) -> NeverFlat
+    Nest i x -> fmap (nest i) (changesUponFlattening x)
+    Union x _ -> case changesUponFlattening x of
+        Flattened x' -> Flattened x'
+        AlreadyFlat -> AlreadyFlat
+        NeverFlat -> NeverFlat
+    Ann a x -> fmap (annotate a) (changesUponFlattening x)
+    Column _ -> Flattened (flatten t)
+    Nesting _ -> Flattened (flatten t)
+
+-- | Optimized 'group': avoids creating 'Union' when the document
+-- is already flat or can never be flattened.
+--
+-- @pretty opts (group' doc) = pretty opts (group doc)@
+group' :: Tree m ann -> Tree m ann
+group' x = case changesUponFlattening x of
+    Flattened x' -> union x' x
+    AlreadyFlat -> x
+    NeverFlat -> x
 
 ---------------------------------------------------------------------
 -- Fusion

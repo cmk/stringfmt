@@ -4,6 +4,7 @@ import System.Exit (exitFailure, exitSuccess)
 
 import qualified Test.Prop.Fixed as Fixed
 import qualified Test.Prop.Fuse as Fuse
+import qualified Test.Prop.Group as Group
 import qualified Test.Prop.Functor as Functor
 import qualified Test.Prop.Tree as Tree
 import qualified Test.Prop.Fmt as Fmt
@@ -23,6 +24,7 @@ main = do
     ok <- and <$> sequence
         [ Fixed.tests
         , Fuse.tests
+        , Group.tests
         , Functor.tests
         , Tree.tests
         , Fmt.tests

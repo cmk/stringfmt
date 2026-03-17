@@ -23,6 +23,10 @@ module Data.Fmt.Tree (
     group,
     align,
 
+    -- * Line breaks
+    softline,
+    softline',
+
     -- * Separators
     (<+>),
     concatWith,
@@ -65,6 +69,9 @@ module Data.Fmt.Tree (
 
     -- * Fusion
     fuse,
+
+    -- * Trailing whitespace
+    removeTrailingWhitespace,
 
     -- * Tokens
     Token (..),
@@ -188,6 +195,22 @@ align :: Tree m ann -> Tree m ann
 align d = column $ \k -> nesting $ \i -> nest (k - i) d
 
 ---------------------------------------------------------------------
+-- Line breaks
+---------------------------------------------------------------------
+
+-- | A line break that behaves like a space when flattened by 'group'.
+--
+-- @softline = group line@
+softline :: IsString m => Tree m ann
+softline = group line
+
+-- | A line break that vanishes when flattened by 'group'.
+--
+-- @softline' = group line'@
+softline' :: Tree m ann
+softline' = group line'
+
+---------------------------------------------------------------------
 -- Separators
 ---------------------------------------------------------------------
 
@@ -209,11 +232,9 @@ hsep = concatWith (<+>)
 vsep :: IsString m => [Tree m ann] -> Tree m ann
 vsep = concatWith (\x y -> x <> line <> y)
 
--- | Concatenate with 'line' that falls back to space.
+-- | Concatenate with 'softline' separators.
 fillSep :: IsString m => [Tree m ann] -> Tree m ann
 fillSep = concatWith (\x y -> x <> softline <> y)
-  where
-    softline = group line
 
 -- | 'vsep' that tries to fit on one line ('group').
 sep :: IsString m => [Tree m ann] -> Tree m ann
@@ -231,11 +252,9 @@ hcat = concatWith (<>)
 vcat :: [Tree m ann] -> Tree m ann
 vcat = concatWith (\x y -> x <> line' <> y)
 
--- | Concatenate with 'line'' that falls back to empty.
+-- | Concatenate with 'softline'' separators.
 fillCat :: [Tree m ann] -> Tree m ann
 fillCat = concatWith (\x y -> x <> softline' <> y)
-  where
-    softline' = group line'
 
 -- | 'vcat' that tries to fit on one line ('group').
 cat :: [Tree m ann] -> Tree m ann
@@ -435,6 +454,19 @@ fuse = fold $ \case
     other -> wrap other
 
 ---------------------------------------------------------------------
+-- Trailing whitespace
+---------------------------------------------------------------------
+
+-- | Remove trailing whitespace from rendered output.
+--
+-- Drops spaces at the end of each line. Applied as a
+-- post-processing step on the rendered string.
+removeTrailingWhitespace :: String -> String
+removeTrailingWhitespace = unlines . map stripEnd . lines
+  where
+    stripEnd = reverse . dropWhile (== ' ') . reverse
+
+---------------------------------------------------------------------
 -- Tokens
 ---------------------------------------------------------------------
 
@@ -478,32 +510,39 @@ data Cmd m ann
 -- remainder of the line fits within the page width, uses it.
 -- Otherwise falls back to the second (default) branch.
 layoutPretty :: LayoutOptions -> Tree m ann -> [Token m ann]
-layoutPretty opts doc = case best 0 [CDoc 0 doc] of
+layoutPretty opts doc = case best 0 0 [CDoc 0 doc] of
     Nothing -> []  -- should not happen for well-formed docs
     Just tokens -> tokens
   where
-    pageWidth = case layoutPageWidth opts of
-        AvailablePerLine w _ -> w
-        Unbounded -> maxBound
+    (maxWidth, ribbonWidth) = case layoutPageWidth opts of
+        AvailablePerLine w r ->
+            let rw = max 0 (min w (floor (r * fromIntegral w)))
+             in (w, rw)
+        Unbounded -> (maxBound, maxBound)
 
-    best :: Int -> [Cmd m ann] -> Maybe [Token m ann]
-    best _ [] = Just []
-    best cc (CPopAnn : rest) = (TAnnPop :) <$> best cc rest
-    best cc (CDoc i d : rest) = case unwrap d of
-        Fail -> Nothing  -- layout failure
-        Empty -> best cc rest
-        Leaf len m -> (TLeaf len m :) <$> best (cc + len) rest
-        Cat x y -> best cc (CDoc i x : CDoc i y : rest)
-        Line -> (TLine i :) <$> best i rest
-        FlatAlt x _ -> best cc (CDoc i x : rest)
-        Nest j x -> best cc (CDoc (i + j) x : rest)
+    -- | Available width for fitting, accounting for ribbon.
+    -- The ribbon limits how far past the nesting level we go.
+    availableWidth :: Int -> Int -> Int
+    availableWidth nl cc = min (maxWidth - cc) (ribbonWidth - cc + nl)
+
+    best :: Int -> Int -> [Cmd m ann] -> Maybe [Token m ann]
+    best _ _ [] = Just []
+    best nl cc (CPopAnn : rest) = (TAnnPop :) <$> best nl cc rest
+    best nl cc (CDoc i d : rest) = case unwrap d of
+        Fail -> Nothing
+        Empty -> best nl cc rest
+        Leaf len m -> (TLeaf len m :) <$> best nl (cc + len) rest
+        Cat x y -> best nl cc (CDoc i x : CDoc i y : rest)
+        Line -> (TLine i :) <$> best i i rest
+        FlatAlt x _ -> best nl cc (CDoc i x : rest)
+        Nest j x -> best nl cc (CDoc (i + j) x : rest)
         Union x y ->
-            case best cc (CDoc i x : rest) of
-                Just flatTokens | fits (pageWidth - cc) flatTokens -> Just flatTokens
-                _ -> best cc (CDoc i y : rest)
-        Ann a x -> (TAnnPush a :) <$> best cc (CDoc i x : CPopAnn : rest)
-        Column f -> best cc (CDoc i (f cc) : rest)
-        Nesting f -> best cc (CDoc i (f i) : rest)
+            case best nl cc (CDoc i x : rest) of
+                Just flatTokens | fits (availableWidth nl cc) flatTokens -> Just flatTokens
+                _ -> best nl cc (CDoc i y : rest)
+        Ann a x -> (TAnnPush a :) <$> best nl cc (CDoc i x : CPopAnn : rest)
+        Column f -> best nl cc (CDoc i (f cc) : rest)
+        Nesting f -> best nl cc (CDoc i (f i) : rest)
 
 -- | One-line lookahead: does the content fit in @w@ characters
 -- before the next line break?

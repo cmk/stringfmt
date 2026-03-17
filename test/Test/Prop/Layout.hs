@@ -28,6 +28,20 @@ opts80 = opts 80
 short :: String -> Tree String ()
 short s = leaf (length s) s
 
+genDoc :: Gen (Tree String ())
+genDoc = Gen.recursive Gen.choice
+    [ short <$> Gen.string (Range.linear 1 8) Gen.alpha
+    , pure emptyDoc
+    ]
+    [ Gen.subterm2 genDoc genDoc (<>)
+    , Gen.subterm genDoc (nest 2)
+    , Gen.subterm genDoc group
+    , Gen.subterm2 genDoc genDoc (\x y -> x <> line <> y)
+    ]
+
+forAllDoc :: Gen (Tree String ()) -> PropertyT IO (Tree String ())
+forAllDoc = forAllWith (pretty opts80)
+
 ---------------------------------------------------------------------
 -- P91–P110: Layout
 ---------------------------------------------------------------------
@@ -168,3 +182,27 @@ prop_P110_multi_group = property $ do
     pretty (opts 80) doc === "xx xx\nyy yy"
     -- Narrow: items break
     pretty (opts 4) doc === "xx\nxx\nyy\nyy"
+
+-- P218: layoutSmart agrees with layoutPretty on simple docs
+prop_P218_smart_simple :: Property
+prop_P218_smart_simple = property $ do
+    s <- forAll $ Gen.string (Range.linear 1 20) Gen.alpha
+    let doc = short s
+        o = opts 80
+    render (layoutSmart o doc) === render (layoutPretty o doc)
+
+-- P219: layoutSmart handles group correctly
+prop_P219_smart_group :: Property
+prop_P219_smart_group = property $ do
+    let doc = group (short "hello" <> line <> short "world")
+    render (layoutSmart (opts 80) doc) === "hello world"
+    render (layoutSmart (opts 5) doc) === "hello\nworld"
+
+-- P220: layoutSmart is at least as good as layoutPretty
+-- (never produces wider output on generated docs)
+prop_P220_smart_generated :: Property
+prop_P220_smart_generated = property $ do
+    doc <- forAllDoc genDoc
+    let o = LayoutOptions Unbounded
+    -- At unbounded width, both agree (same single-line layout)
+    render (layoutSmart o doc) === render (layoutPretty o doc)

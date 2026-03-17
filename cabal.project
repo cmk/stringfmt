@@ -1,2 +1,4 @@
 packages: .
-optional-packages: ../scheme-extensions
+optional-packages:
+  ../scheme-extensions
+  ../logfmt

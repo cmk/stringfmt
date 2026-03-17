@@ -81,6 +81,7 @@ module Data.Fmt.Tree (
     LayoutOptions (..),
     defaultLayoutOptions,
     layoutPretty,
+    layoutSmart,
     layoutCompact,
 
     -- * Streaming layout
@@ -553,6 +554,65 @@ fits _ (TLine _ : _) = True
 fits w (TLeaf len _ : rest) = fits (w - len) rest
 fits w (TAnnPush _ : rest) = fits w rest
 fits w (TAnnPop : rest) = fits w rest
+
+-- | Smart layout with multi-line lookahead.
+--
+-- Like 'layoutPretty', but the fitting predicate checks beyond
+-- the first line break — it continues checking until it finds a
+-- line that starts at the same or shallower indentation level.
+-- This prevents surprises where content looks like it fits but
+-- subsequent lines overflow.
+--
+-- Use this for deeply nested structures where 'layoutPretty'
+-- makes suboptimal choices.
+layoutSmart :: LayoutOptions -> Tree m ann -> [Token m ann]
+layoutSmart opts doc = case best 0 0 [CDoc 0 doc] of
+    Nothing -> []
+    Just tokens -> tokens
+  where
+    (maxWidth, ribbonWidth) = case layoutPageWidth opts of
+        AvailablePerLine w r ->
+            let rw = max 0 (min w (floor (r * fromIntegral w)))
+             in (w, rw)
+        Unbounded -> (maxBound, maxBound)
+
+    availableWidth :: Int -> Int -> Int
+    availableWidth nl cc = min (maxWidth - cc) (ribbonWidth - cc + nl)
+
+    best :: Int -> Int -> [Cmd m ann] -> Maybe [Token m ann]
+    best _ _ [] = Just []
+    best nl cc (CPopAnn : rest) = (TAnnPop :) <$> best nl cc rest
+    best nl cc (CDoc i d : rest) = case unwrap d of
+        Fail -> Nothing
+        Empty -> best nl cc rest
+        Leaf len m -> (TLeaf len m :) <$> best nl (cc + len) rest
+        Cat x y -> best nl cc (CDoc i x : CDoc i y : rest)
+        Line -> (TLine i :) <$> best i i rest
+        FlatAlt x _ -> best nl cc (CDoc i x : rest)
+        Nest j x -> best nl cc (CDoc (i + j) x : rest)
+        Union x y ->
+            case best nl cc (CDoc i x : rest) of
+                Just flatTokens | fitsSmart nl (availableWidth nl cc) flatTokens -> Just flatTokens
+                _ -> best nl cc (CDoc i y : rest)
+        Ann a x -> (TAnnPush a :) <$> best nl cc (CDoc i x : CPopAnn : rest)
+        Column f -> best nl cc (CDoc i (f cc) : rest)
+        Nesting f -> best nl cc (CDoc i (f i) : rest)
+
+-- | Multi-line lookahead: checks fitting beyond the first line break.
+--
+-- After a line break, continues checking if the content on the
+-- next line fits — but only if the next line is more deeply
+-- indented than the current nesting level. Stops when it finds
+-- a line at the same or shallower indentation.
+fitsSmart :: Int -> Int -> [Token m ann] -> Bool
+fitsSmart _ w _ | w < 0 = False
+fitsSmart _ _ [] = True
+fitsSmart nl _ (TLine i : rest)
+    | i > nl = fitsSmart nl (i) rest  -- deeper: keep checking
+    | otherwise = True                 -- same or shallower: done
+fitsSmart nl w (TLeaf len _ : rest) = fitsSmart nl (w - len) rest
+fitsSmart nl w (TAnnPush _ : rest) = fitsSmart nl w rest
+fitsSmart nl w (TAnnPop : rest) = fitsSmart nl w rest
 
 -- | Compact layout: no width-sensitivity, always breaks.
 --

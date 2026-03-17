@@ -25,6 +25,7 @@ library
       Data.Fmt.Functor
       Data.Fmt.Fixed
       Data.Fmt.ByteString
+      Data.Fmt.Kan
       Data.Fmt.Cons
       Data.Fmt.Code
       Data.Fmt.String
@@ -42,6 +43,7 @@ library
   build-depends:
       base               >= 4.16  && < 5.0
     , bytestring
+    , kan-extensions
     , profunctors
     , text
 
@@ -60,6 +62,7 @@ test-suite props
       Test.Prop.String
       Test.Prop.ByteString
       Test.Prop.Combinators
+      Test.Prop.Kan
       Test.Prop.Cons
       Test.Prop.Code
       Test.Prop.Layout
@@ -68,6 +71,8 @@ test-suite props
   build-depends:
       base               >= 4.16  && < 5.0
     , bytestring
+    , comonad
     , hedgehog           >= 1.0
+    , kan-extensions
     , stringfmt
     , text

@@ -11,6 +11,7 @@ import qualified Test.Prop.ByteString as ByteString
 import qualified Test.Prop.Combinators as Combinators
 import qualified Test.Prop.Cons as Cons
 import qualified Test.Prop.Code as Code
+import qualified Test.Prop.Kan as Kan
 import qualified Test.Prop.Layout as Layout
 import qualified Test.Prop.Text as Text
 
@@ -26,6 +27,7 @@ main = do
         , Combinators.tests
         , Cons.tests
         , Code.tests
+        , Kan.tests
         , Layout.tests
         , Text.tests
         ]

@@ -68,6 +68,7 @@ test-suite props
       Test.Prop.Code
       Test.Prop.Layout
       Test.Prop.Text
+      Test.Prop.Wadler
 
   build-depends:
       base               >= 4.16  && < 5.0

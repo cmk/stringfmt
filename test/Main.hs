@@ -14,6 +14,7 @@ import qualified Test.Prop.Code as Code
 import qualified Test.Prop.Kan as Kan
 import qualified Test.Prop.Layout as Layout
 import qualified Test.Prop.Text as Text
+import qualified Test.Prop.Wadler as Wadler
 
 main :: IO ()
 main = do
@@ -30,5 +31,6 @@ main = do
         , Kan.tests
         , Layout.tests
         , Text.tests
+        , Wadler.tests
         ]
     if ok then exitSuccess else exitFailure

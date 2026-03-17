@@ -5,11 +5,13 @@ module Data.Fmt.Text (
     -- * TextFmt
     TextFmt,
     runTextFmt,
+    printf,
 
     -- * Combinators
     cat1With,
     hsep,
     vsep,
+    hang,
     list1,
 
     -- * Splitting
@@ -29,6 +31,7 @@ module Data.Fmt.Text (
 import Data.Foldable (toList)
 import Data.Fmt.Type (Fmt (..), Fmt1, fmt, fmt1, (%))
 
+import qualified Data.Text.IO as TIO
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -41,6 +44,11 @@ type TextFmt = Fmt Builder
 {-# INLINE runTextFmt #-}
 runTextFmt :: TextFmt TL.Text a -> a
 runTextFmt (Fmt f) = f toLazyText
+
+-- | Run a 'TextFmt' and print the result to stdout.
+{-# INLINE printf #-}
+printf :: TextFmt (IO ()) a -> a
+printf (Fmt f) = f $ TIO.putStr . TL.toStrict . toLazyText
 
 ---------------------------------------------------------------------
 -- Internal
@@ -77,6 +85,14 @@ hsep = cat1With (T.intercalate " ")
 {-# INLINE vsep #-}
 vsep :: Foldable f => Fmt1 Builder Text a -> Fmt1 Builder s (f a)
 vsep = cat1With (T.intercalate "\n")
+
+-- | Format each value on its own line, indented by @n@ spaces.
+{-# INLINE hang #-}
+hang :: Foldable f => Int -> Fmt1 Builder Text a -> Fmt1 Builder s (f a)
+hang n f = fmt1 $ \xs ->
+    let pad = T.replicate n " "
+        items = map (\x -> pad <> run1 f x) (toList xs)
+     in fromText (T.unlines items)
 
 -- | Format in square brackets with comma separation.
 {-# INLINE list1 #-}

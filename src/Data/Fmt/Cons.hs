@@ -81,6 +81,10 @@ module Data.Fmt.Cons (
     -- * Streaming metamorphisms (Cons-specialized)
     fstream,
 
+    -- * Element mapping
+    comap,
+    contramap,
+
     -- * Nu-based iteration
     iterate,
     repeat,
@@ -404,6 +408,24 @@ fstream proj emb produce consume flush =
         (\case
             Nil -> Nothing
             Cons a x' -> Just (flip consume a :!: x'))
+
+---------------------------------------------------------------------
+-- Element mapping
+---------------------------------------------------------------------
+
+-- | Map over elements via anamorphism: project, transform, re-embed.
+--
+-- @comap f xs@ applies @f@ to each element of the stream.
+-- Uses 'Data.Bifunctor.first' to map the element position in 'Cons'.
+comap :: (a -> b) -> Mu (Cons a) -> Mu (Cons b)
+comap f = unfold (first f . unwrap)
+
+-- | Map over elements via catamorphism: fold with transformed re-embedding.
+--
+-- Semantically identical to 'comap' — the names refer to the
+-- recursion strategy (ana vs cata), not to variance.
+contramap :: (a -> b) -> Mu (Cons a) -> Mu (Cons b)
+contramap f = fold (wrap . first f)
 
 ---------------------------------------------------------------------
 -- Nu-based iteration

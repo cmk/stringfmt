@@ -12,7 +12,9 @@ import qualified Hedgehog.Range as Range
 import Control.Comonad (extract)
 import Control.Comonad.Density (Density, liftDensity, densityToLan, lanToDensity)
 import Control.Monad.Codensity (Codensity (..), lowerCodensity)
+import Control.Monad.Trans.State.Strict (StateT (..), runStateT)
 import Data.Fmt.Cons
+import Data.Functor.Compose (Compose (..))
 import Data.Fmt.Fixed
 import Data.Fmt.Kan
 import Data.Fmt.Type (Fmt (..), fmt, runFmt, (%))
@@ -291,3 +293,26 @@ prop_P170_codensity_curried = property $ do
     -- Codensity Maybe is a useful monad
     let c = pure n :: Codensity Maybe Int
     lowerCodensity c === Just n
+
+---------------------------------------------------------------------
+-- P216–P217: Codensity / StateT isomorphism
+---------------------------------------------------------------------
+
+-- P216: codensityToStateT . stateTToCodensity = id (round-trip)
+prop_P216_stateT_roundtrip :: Property
+prop_P216_stateT_roundtrip = property $ do
+    n <- forAll $ Gen.int (Range.linear 0 100)
+    -- StateT Int Maybe Int: stateful computation that might fail
+    let st :: StateT Int Maybe Int
+        st = StateT $ \m -> Just (m + 1, m * 2)
+    runStateT (codensityToStateT (stateTToCodensity st)) n
+        === runStateT st n
+
+-- P217: round-trip preserves behavior for different state functions
+prop_P217_stateT_roundtrip2 :: Property
+prop_P217_stateT_roundtrip2 = property $ do
+    n <- forAll $ Gen.int (Range.linear 1 100)
+    let st :: StateT Int Maybe Int
+        st = StateT $ \m -> if m > 0 then Just (m * 3, m - 1) else Nothing
+    runStateT (codensityToStateT (stateTToCodensity st)) n
+        === runStateT st n

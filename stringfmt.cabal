@@ -47,6 +47,7 @@ library
     , kan-extensions
     , profunctors
     , text
+    , transformers
 
 test-suite props
   type: exitcode-stdio-1.0
@@ -82,3 +83,4 @@ test-suite props
     , kan-extensions
     , stringfmt
     , text
+    , transformers

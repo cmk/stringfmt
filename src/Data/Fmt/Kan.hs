@@ -43,6 +43,8 @@ module Data.Fmt.Kan (
     foldMCodensity,
     codensityToState,
     stateToCodensity,
+    codensityToStateT,
+    stateTToCodensity,
 
     -- * Re-exports
     module Data.Functor.Day,
@@ -56,8 +58,10 @@ module Data.Fmt.Kan (
 
 import Control.Comonad.Density
 import Control.Monad.Codensity
+import Control.Monad.Trans.State.Strict (StateT (..))
 import Data.Foldable (toList)
 import Data.Fmt.Cons (Cons (..))
+import Data.Functor.Compose (Compose (..))
 import Data.Fmt.Fixed
 import Data.Fmt.Type (Fmt (..))
 import Data.Functor.Classes (Eq1 (..), Ord1 (..))
@@ -302,3 +306,46 @@ codensityToState (Codensity f) m = f (\a m' -> (a, m')) m
 -- (11,20)
 stateToCodensity :: (m -> (a, m)) -> Codensity ((->) m) a
 stateToCodensity f = Codensity $ \k m -> let (a, m') = f m in k a m'
+
+-- | Convert @Codensity (Compose ((->) m) n)@ to @StateT m n@.
+--
+-- The higher-kinded generalization of 'codensityToState':
+--
+-- @
+-- Codensity ((->) m)             a  ≅  State  m   a
+-- Codensity (Compose ((->) m) n) a  ≅  StateT m n a
+-- @
+--
+-- Unwrapping:
+--
+-- @
+-- Codensity (Compose ((->) m) n) a
+--   = forall b. (a -> m -> n b) -> m -> n b
+-- @
+--
+-- which is @StateT m n@ in CPS form.
+--
+-- >>> import Data.Fmt.Kan
+-- >>> import Control.Monad.Trans.State.Strict
+-- >>> let c = Codensity $ \k m -> k (m + 1) (m * 2) :: Codensity (Compose ((->) Int) Identity) Int
+-- >>> runStateT (codensityToStateT c) 10
+-- Identity (11,20)
+--
+-- __Connection:__ for any 'Representable' @u@ with @Rep u = r@:
+-- @Codensity (Compose u n) ≅ StateT r n@. With @u = (->) m@,
+-- @Rep = m@, this gives @StateT m n@. With @u = ShortByteString@,
+-- @Rep = Int@, you get @StateT Int n@ — an effectful indexed
+-- traversal state machine.
+codensityToStateT :: Monad n => Codensity (Compose ((->) m) n) a -> StateT m n a
+codensityToStateT (Codensity f) = StateT $ \m ->
+    getCompose (f (\a -> Compose (\m' -> pure (a, m')))) m
+
+-- | Inverse of 'codensityToStateT'.
+--
+-- >>> import Data.Fmt.Kan
+-- >>> import Control.Monad.Trans.State.Strict
+-- >>> codensityToState (stateTToCodensity (state (\m -> (m + 1, m * 2)))) (10 :: Int)
+-- (11,20)
+stateTToCodensity :: Monad n => StateT m n a -> Codensity (Compose ((->) m) n) a
+stateTToCodensity (StateT st) = Codensity $ \k ->
+    Compose $ \m -> st m >>= \(a, m') -> getCompose (k a) m'

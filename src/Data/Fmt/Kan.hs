@@ -128,8 +128,8 @@ compareDay (Day f1 f2 fn) =
 
 -- | Recursive equality via 'fold2' and 'equalDay'.
 --
--- Compares two @Fix f@ values layer by layer using Day
--- convolution. Equivalent to @(==)@ from the @Eq (Fix f)@
+-- Compares two @Mu f@ values layer by layer using Day
+-- convolution. Equivalent to @(==)@ from the @Eq (Mu f)@
 -- instance, but expressed explicitly via Day.
 --
 -- >>> import Data.Fmt.Cons
@@ -140,7 +140,7 @@ compareDay (Day f1 f2 fn) =
 --
 -- __Connection:__ this is @fold2 (equalDay (liftEq (==)))@ —
 -- the Eq instance decomposed into its Day + fold components.
-recursiveEq :: (Functor f, Foldable f, Eq1 f) => Fix f -> Fix f -> Bool
+recursiveEq :: (Functor f, Foldable f, Eq1 f) => Mu f -> Mu f -> Bool
 recursiveEq x y = equalDay (Day (unwrap x) (unwrap y) (\a b -> recursiveEq a b))
 
 -- | Recursive ordering via Day convolution.
@@ -148,7 +148,7 @@ recursiveEq x y = equalDay (Day (unwrap x) (unwrap y) (\a b -> recursiveEq a b))
 -- >>> import Data.Fmt.Cons
 -- >>> recursiveOrd (fromList [1,2,3 :: Int]) (fromList [1,2,4])
 -- LT
-recursiveOrd :: (Functor f, Foldable f, Ord1 f) => Fix f -> Fix f -> Ordering
+recursiveOrd :: (Functor f, Foldable f, Ord1 f) => Mu f -> Mu f -> Ordering
 recursiveOrd x y = compareDay (Day (unwrap x) (unwrap y) (\a b -> recursiveOrd a b))
 
 -- | Show that @(%)@ is Day convolution of @(->) m@.
@@ -194,7 +194,7 @@ fmtDay (Fmt f) (Fmt g) = Day (\m -> f (<> m)) (\m -> g (<> m)) (<>)
 
 -- | Yoneda-encoded natural transformation accumulator for 'Fix'.
 --
--- @YonedaFix f g@ holds a @Fix f@ together with a pending
+-- @YonedaFix f g@ holds a @Mu f@ together with a pending
 -- natural transformation @f ~> g@. Multiple transformations
 -- compose via 'mapYonedaFix' in O(1) (function composition).
 -- The actual traversal happens once at 'lowerYonedaFix'.
@@ -216,7 +216,7 @@ fmtDay (Fmt f) (Fmt g) = Day (\m -> f (<> m)) (\m -> g (<> m)) (<>)
 -- category @[Hask, Hask]@: natural transformations out of
 -- @f@ are equivalent to @f@ itself. Accumulating them as
 -- function composition defers the cost.
-data YonedaFix f g = YonedaFix (forall a. f a -> g a) (Fix f)
+data YonedaFix f g = YonedaFix (forall a. f a -> g a) (Mu f)
 
 -- | Lift a 'Fix' into 'YonedaFix' with the identity transformation.
 --
@@ -224,7 +224,7 @@ data YonedaFix f g = YonedaFix (forall a. f a -> g a) (Fix f)
 -- >>> let xs = fromList [1, 2, 3 :: Int]
 -- >>> toList (lowerYonedaFix (liftYonedaFix xs))
 -- [1,2,3]
-liftYonedaFix :: Fix f -> YonedaFix f f
+liftYonedaFix :: Mu f -> YonedaFix f f
 liftYonedaFix = YonedaFix id
 
 -- | Apply a natural transformation in O(1) (just composition).
@@ -244,7 +244,7 @@ mapYonedaFix n (YonedaFix m t) = YonedaFix (n . m) t
 -- >>> let inc Nil = Nil; inc (Cons a r) = Cons (a + 1) r
 -- >>> toList (lowerYonedaFix (mapYonedaFix inc (mapYonedaFix inc (liftYonedaFix xs))))
 -- [3,4,5]
-lowerYonedaFix :: YonedaFix f g -> Fix g
+lowerYonedaFix :: YonedaFix f g -> Mu g
 lowerYonedaFix (YonedaFix n t) = hoist n t
 
 ---------------------------------------------------------------------
@@ -272,7 +272,7 @@ lowerYonedaFix (YonedaFix n t) = hoist n t
 foldMCodensity
     :: (Traversable f, Monad m)
     => AlgebraM m f a
-    -> Fix f
+    -> Mu f
     -> m a
 foldMCodensity alg = lowerCodensity . fold go
   where

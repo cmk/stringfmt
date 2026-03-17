@@ -17,7 +17,7 @@ tests = checkParallel $$(discover)
 -- Generators
 ---------------------------------------------------------------------
 
-type List a = Fix (Cons a)
+type List a = Mu (Cons a)
 
 nil :: List a
 nil = wrap Nil

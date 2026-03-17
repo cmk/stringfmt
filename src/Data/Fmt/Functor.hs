@@ -19,7 +19,7 @@ module Data.Fmt.Functor (
     Tree,
 ) where
 
-import Data.Fmt.Fixed (Fix, wrap)
+import Data.Fmt.Fixed (Mu, wrap)
 import Data.String (IsString (..))
 
 -- | One layer of a document tree.
@@ -58,7 +58,7 @@ data FmtF m ann r
     deriving (Functor)
 
 -- | A document tree: the initial algebra of @FmtF m ann@.
-type Tree m ann = Fix (FmtF m ann)
+type Tree m ann = Mu (FmtF m ann)
 
 ---------------------------------------------------------------------
 -- Instances

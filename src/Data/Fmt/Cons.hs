@@ -6,7 +6,7 @@
 
 -- | The @Cons@ pattern functor for list-like structures.
 --
--- Isomorphic to @Maybe (a, b)@. @Fix (Cons a)@ is a
+-- Isomorphic to @Maybe (a, b)@. @Mu (Cons a)@ is a
 -- Church-encoded list, equivalent to @Logic a@ from @logict@.
 --
 -- This module also provides streaming metamorphisms (Gibbons)
@@ -102,7 +102,7 @@ import Prelude
 
 -- | The pattern functor for list-like structures.
 --
--- Isomorphic to @Maybe (a, b)@. @Fix (Cons a)@ is a
+-- Isomorphic to @Maybe (a, b)@. @Mu (Cons a)@ is a
 -- Church-encoded list.
 data Cons a b = Nil | Cons a b
     deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
@@ -317,12 +317,12 @@ swapCons (Cons a b) = Cons b a
 -- List conversion
 ---------------------------------------------------------------------
 
--- | Convert a 'Fix (Cons a)' to a Haskell list.
-toList :: Fix (Cons a) -> [a]
+-- | Convert a 'Mu (Cons a)' to a Haskell list.
+toList :: Mu (Cons a) -> [a]
 toList = fold (elim [] (:))
 
--- | Convert a Haskell list to a 'Fix (Cons a)'.
-fromList :: [a] -> Fix (Cons a)
+-- | Convert a Haskell list to a 'Mu (Cons a)'.
+fromList :: [a] -> Mu (Cons a)
 fromList = foldr (\a r -> wrap (Cons a r)) (wrap Nil)
 
 ---------------------------------------------------------------------
@@ -382,9 +382,9 @@ seqEither psi = fromEither . bimap (fmap Left . psi) (fmap Right)
 stream
     :: (state -> Maybe (Cons a state))
     -- ^ @process@: try to produce an output element
-    -> (state -> ((state -> state) -> Fix (Cons b) -> Fix (Cons a)) -> Cons b (Fix (Cons b)) -> Fix (Cons a))
+    -> (state -> ((state -> state) -> Mu (Cons b) -> Mu (Cons a)) -> Cons b (Mu (Cons b)) -> Mu (Cons a))
     -- ^ @accum@: consume next input, given a continuation
-    -> state -> Fix (Cons b) -> Fix (Cons a)
+    -> state -> Mu (Cons b) -> Mu (Cons a)
 stream process accum = go
   where
     go state input =
@@ -397,9 +397,9 @@ stream process accum = go
 astream
     :: (state -> Maybe (Cons a state))
     -- ^ @process@: try to produce output
-    -> (Cons b (Fix (Cons b)) -> Pair (state -> state) (Fix (Cons b)))
+    -> (Cons b (Mu (Cons b)) -> Pair (state -> state) (Mu (Cons b)))
     -- ^ @accum@: consume input element
-    -> state -> Fix (Cons b) -> Fix (Cons a)
+    -> state -> Mu (Cons b) -> Mu (Cons a)
 astream process accum = stream process $
     \_state cont -> uncurryPair cont . accum
 
@@ -410,9 +410,9 @@ gstream
     -- ^ @flush@: drain remaining state when input is exhausted
     -> (state -> Maybe (Cons a state))
     -- ^ @process@: try to produce output
-    -> (Cons b (Fix (Cons b)) -> Maybe (Pair (state -> state) (Fix (Cons b))))
+    -> (Cons b (Mu (Cons b)) -> Maybe (Pair (state -> state) (Mu (Cons b))))
     -- ^ @accum@: try to consume input element
-    -> state -> Fix (Cons b) -> Fix (Cons a)
+    -> state -> Mu (Cons b) -> Mu (Cons a)
 gstream flush process accum = stream process $
     \state cont -> maybe (unfold flush state) (uncurryPair cont) . accum
 
@@ -420,8 +420,8 @@ gstream flush process accum = stream process $
 --
 -- Parameterized by produce, consume, and flush:
 --
--- @fstream produce consume flush@ transforms a @Fix (Cons b)@ into a
--- @Fix (Cons a)@ by interleaving:
+-- @fstream produce consume flush@ transforms a @Mu (Cons b)@ into a
+-- @Mu (Cons a)@ by interleaving:
 --
 -- * @produce@: try to emit output from the accumulator state
 -- * @consume@: fold the next input element into the state
@@ -433,7 +433,7 @@ fstream
     -- ^ @consume@: fold an input element into the state
     -> (state -> Cons a state)
     -- ^ @flush@: drain remaining state when input is exhausted
-    -> state -> Fix (Cons b) -> Fix (Cons a)
+    -> state -> Mu (Cons b) -> Mu (Cons a)
 fstream f g h =
     gstream h
         (\s -> case f s of

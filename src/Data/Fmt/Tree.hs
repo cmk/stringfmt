@@ -73,7 +73,7 @@ module Data.Fmt.Tree (
     pretty,
 ) where
 
-import Data.Fmt.Fixed (Fix, fold, hoist, unwrap, wrap)
+import Data.Fmt.Fixed (Mu, fold, hoist, unwrap, wrap)
 import Data.Fmt.Functor (FmtF (..), Tree)
 import Data.String (IsString (..))
 

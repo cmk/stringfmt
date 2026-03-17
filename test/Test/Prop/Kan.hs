@@ -30,10 +30,10 @@ tests = checkParallel $$(discover)
 -- Generators
 ---------------------------------------------------------------------
 
-genList :: Gen (Fix (Cons Int))
+genList :: Gen (Mu (Cons Int))
 genList = fromList <$> Gen.list (Range.linear 0 20) (Gen.int (Range.linear 0 100))
 
-forAllL :: Gen (Fix (Cons Int)) -> PropertyT IO (Fix (Cons Int))
+forAllL :: Gen (Mu (Cons Int)) -> PropertyT IO (Mu (Cons Int))
 forAllL = forAllWith (show . toList)
 
 ---------------------------------------------------------------------
@@ -54,14 +54,14 @@ prop_P142_compareDay = property $ do
     b <- forAll $ Gen.int (Range.linear 0 100)
     compareDay (Day (Cons a EQ) (Cons b EQ) (<>)) === compare a b
 
--- P143: recursiveEq agrees with (==) on Fix (Cons Int)
+-- P143: recursiveEq agrees with (==) on Mu (Cons Int)
 prop_P143_recursiveEq :: Property
 prop_P143_recursiveEq = property $ do
     xs <- forAllL genList
     ys <- forAllL genList
     recursiveEq xs ys === (xs == ys)
 
--- P144: recursiveOrd agrees with compare on Fix (Cons Int)
+-- P144: recursiveOrd agrees with compare on Mu (Cons Int)
 prop_P144_recursiveOrd :: Property
 prop_P144_recursiveOrd = property $ do
     xs <- forAllL genList

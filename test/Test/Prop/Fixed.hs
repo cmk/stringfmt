@@ -23,7 +23,7 @@ tests = checkParallel $$(discover)
 data ListF a r = NilF | ConsF a r
     deriving (Functor)
 
-type List a = Fix (ListF a)
+type List a = Mu (ListF a)
 
 nil :: List a
 nil = wrap NilF

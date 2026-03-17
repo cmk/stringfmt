@@ -8,6 +8,7 @@ import qualified Test.Prop.Tree as Tree
 import qualified Test.Prop.Fmt as Fmt
 import qualified Test.Prop.String as String
 import qualified Test.Prop.ByteString as ByteString
+import qualified Test.Prop.Combinators as Combinators
 import qualified Test.Prop.Cons as Cons
 import qualified Test.Prop.Code as Code
 import qualified Test.Prop.Layout as Layout
@@ -22,6 +23,7 @@ main = do
         , Fmt.tests
         , String.tests
         , ByteString.tests
+        , Combinators.tests
         , Cons.tests
         , Code.tests
         , Layout.tests

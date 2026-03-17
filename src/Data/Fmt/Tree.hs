@@ -23,6 +23,41 @@ module Data.Fmt.Tree (
     group,
     align,
 
+    -- * Separators
+    (<+>),
+    concatWith,
+    hsep,
+    vsep,
+    fillSep,
+    sep,
+
+    -- * Concatenation
+    hcat,
+    vcat,
+    fillCat,
+    cat,
+
+    -- * Indentation
+    hang,
+    indent,
+
+    -- * Enclosure
+    surround,
+    encloseSep,
+    list,
+    tupled,
+    punctuate,
+
+    -- * Filling
+    width,
+    fill,
+    fillBreak,
+
+    -- * Annotations
+    reAnnotate,
+    unAnnotate,
+    alterAnnotations,
+
     -- * Tokens
     Token (..),
 
@@ -38,7 +73,7 @@ module Data.Fmt.Tree (
     pretty,
 ) where
 
-import Data.Fmt.Fixed (Fix, fold, unwrap, wrap)
+import Data.Fmt.Fixed (Fix, fold, hoist, unwrap, wrap)
 import Data.Fmt.Functor (FmtF (..), Tree)
 import Data.String (IsString (..))
 
@@ -137,6 +172,170 @@ group x = union (flatten x) x
 -- @align d = column (\\k -> nesting (\\i -> nest (k - i) d))@
 align :: Tree m ann -> Tree m ann
 align d = column $ \k -> nesting $ \i -> nest (k - i) d
+
+---------------------------------------------------------------------
+-- Separators
+---------------------------------------------------------------------
+
+-- | Concatenate with a space in between.
+infixr 6 <+>
+(<+>) :: IsString m => Tree m ann -> Tree m ann -> Tree m ann
+x <+> y = x <> leaf 1 (fromString " ") <> y
+
+-- | Concatenate documents using a binary operator.
+concatWith :: (Tree m ann -> Tree m ann -> Tree m ann) -> [Tree m ann] -> Tree m ann
+concatWith _ [] = emptyDoc
+concatWith f (x : xs) = foldl f x xs
+
+-- | Concatenate with spaces.
+hsep :: IsString m => [Tree m ann] -> Tree m ann
+hsep = concatWith (<+>)
+
+-- | Concatenate with 'line' separators.
+vsep :: IsString m => [Tree m ann] -> Tree m ann
+vsep = concatWith (\x y -> x <> line <> y)
+
+-- | Concatenate with 'line' that falls back to space.
+fillSep :: IsString m => [Tree m ann] -> Tree m ann
+fillSep = concatWith (\x y -> x <> softline <> y)
+  where
+    softline = group line
+
+-- | 'vsep' that tries to fit on one line ('group').
+sep :: IsString m => [Tree m ann] -> Tree m ann
+sep = group . vsep
+
+---------------------------------------------------------------------
+-- Concatenation
+---------------------------------------------------------------------
+
+-- | Concatenate without separators.
+hcat :: [Tree m ann] -> Tree m ann
+hcat = concatWith (<>)
+
+-- | Concatenate with 'line'' separators (line or empty).
+vcat :: [Tree m ann] -> Tree m ann
+vcat = concatWith (\x y -> x <> line' <> y)
+
+-- | Concatenate with 'line'' that falls back to empty.
+fillCat :: [Tree m ann] -> Tree m ann
+fillCat = concatWith (\x y -> x <> softline' <> y)
+  where
+    softline' = group line'
+
+-- | 'vcat' that tries to fit on one line ('group').
+cat :: [Tree m ann] -> Tree m ann
+cat = group . vcat
+
+---------------------------------------------------------------------
+-- Indentation
+---------------------------------------------------------------------
+
+-- | @hang i doc = align (nest i doc)@
+hang :: Int -> Tree m ann -> Tree m ann
+hang i d = align (nest i d)
+
+-- | @indent i doc@ inserts @i@ spaces then aligns.
+indent :: IsString m => Int -> Tree m ann -> Tree m ann
+indent i d = hang i (leaf i (fromString (replicate i ' ')) <> d)
+
+---------------------------------------------------------------------
+-- Enclosure
+---------------------------------------------------------------------
+
+-- | @surround mid left right = left \<\> mid \<\> right@
+surround :: Tree m ann -> Tree m ann -> Tree m ann -> Tree m ann
+surround x l r = l <> x <> r
+
+-- | Enclose a list with separators.
+--
+-- @encloseSep lbrace rbrace comma [a, b, c] = lbrace \<\> a \<\> comma \<\> b \<\> comma \<\> c \<\> rbrace@
+--
+-- When the content fits, renders on one line. Otherwise, each
+-- element gets its own line, aligned.
+encloseSep :: IsString m => Tree m ann -> Tree m ann -> Tree m ann -> [Tree m ann] -> Tree m ann
+encloseSep l r _ [] = l <> r
+encloseSep l r s ds = group $
+    l <> hcat (zipWith (<>) (emptyDoc : repeat (s <> line')) ds) <> r
+
+-- | @list = encloseSep \"[\" \"]\" \", \"@
+list :: IsString m => [Tree m ann] -> Tree m ann
+list = encloseSep (leaf 1 (fromString "["))
+                  (leaf 1 (fromString "]"))
+                  (leaf 2 (fromString ", "))
+
+-- | @tupled = encloseSep \"(\" \")\" \", \"@
+tupled :: IsString m => [Tree m ann] -> Tree m ann
+tupled = encloseSep (leaf 1 (fromString "("))
+                    (leaf 1 (fromString ")"))
+                    (leaf 2 (fromString ", "))
+
+-- | Append a separator to all but the last element.
+punctuate :: Tree m ann -> [Tree m ann] -> [Tree m ann]
+punctuate _ [] = []
+punctuate _ [d] = [d]
+punctuate s (d : ds) = (d <> s) : punctuate s ds
+
+---------------------------------------------------------------------
+-- Filling
+---------------------------------------------------------------------
+
+-- | @width doc f@ renders @doc@ then passes its rendered width to @f@.
+width :: Tree m ann -> (Int -> Tree m ann) -> Tree m ann
+width d f = column $ \start -> d <> column (\end -> f (end - start))
+
+-- | @fill n doc@ pads @doc@ to width @n@ with spaces.
+fill :: IsString m => Int -> Tree m ann -> Tree m ann
+fill n d = width d $ \w ->
+    if w >= n
+        then emptyDoc
+        else leaf (n - w) (fromString (replicate (n - w) ' '))
+
+-- | @fillBreak n doc@ pads or breaks after @doc@ if it exceeds @n@.
+fillBreak :: IsString m => Int -> Tree m ann -> Tree m ann
+fillBreak n d = width d $ \w ->
+    if w > n
+        then nest n line'
+        else leaf (n - w) (fromString (replicate (n - w) ' '))
+
+---------------------------------------------------------------------
+-- Annotations
+---------------------------------------------------------------------
+
+-- | Map over annotations.
+reAnnotate :: (ann -> ann') -> Tree m ann -> Tree m ann'
+reAnnotate f = hoist go
+  where
+    go Fail = Fail
+    go Empty = Empty
+    go (Leaf n m) = Leaf n m
+    go (Cat a b) = Cat a b
+    go Line = Line
+    go (FlatAlt a b) = FlatAlt a b
+    go (Nest i a) = Nest i a
+    go (Union a b) = Union a b
+    go (Ann a x) = Ann (f a) x
+    go (Column k) = Column k
+    go (Nesting k) = Nesting k
+
+-- | Remove all annotations.
+unAnnotate :: Tree m ann -> Tree m ann'
+unAnnotate = alterAnnotations (const [])
+
+-- | Alter annotations, potentially adding or removing layers.
+alterAnnotations :: (ann -> [ann']) -> Tree m ann -> Tree m ann'
+alterAnnotations f = fold $ \case
+    Ann a x -> foldr (\a' d -> wrap (Ann a' d)) x (f a)
+    Fail -> wrap Fail
+    Empty -> wrap Empty
+    Leaf n m -> wrap (Leaf n m)
+    Cat a b -> wrap (Cat a b)
+    Line -> wrap Line
+    FlatAlt a b -> wrap (FlatAlt a b)
+    Nest i a -> wrap (Nest i a)
+    Union a b -> wrap (Union a b)
+    Column k -> wrap (Column k)
+    Nesting k -> wrap (Nesting k)
 
 ---------------------------------------------------------------------
 -- Tokens

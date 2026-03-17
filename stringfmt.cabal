@@ -61,6 +61,7 @@ test-suite props
       Test.Prop.ByteString
       Test.Prop.Cons
       Test.Prop.Code
+      Test.Prop.Layout
       Test.Prop.Text
 
   build-depends:

@@ -10,6 +10,7 @@ import qualified Test.Prop.String as String
 import qualified Test.Prop.ByteString as ByteString
 import qualified Test.Prop.Cons as Cons
 import qualified Test.Prop.Code as Code
+import qualified Test.Prop.Layout as Layout
 import qualified Test.Prop.Text as Text
 
 main :: IO ()
@@ -23,6 +24,7 @@ main = do
         , ByteString.tests
         , Cons.tests
         , Code.tests
+        , Layout.tests
         , Text.tests
         ]
     if ok then exitSuccess else exitFailure

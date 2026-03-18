@@ -108,7 +108,11 @@ as the monoid in `Fmt (Tree m ann) a b`.
 line, line', hardline, softline, softline' :: Tree m ann
 
 -- Grouping and indentation
-group, nest, align, hang, indent :: ... -> Tree m ann
+group  :: Tree m ann -> Tree m ann
+nest   :: Int -> Tree m ann -> Tree m ann
+align  :: Tree m ann -> Tree m ann
+hang   :: Int -> Tree m ann -> Tree m ann
+indent :: IsString m => Int -> Tree m ann -> Tree m ann
 
 -- Separators
 hsep, vsep, sep, fillSep :: [Tree m ann] -> Tree m ann
@@ -155,12 +159,27 @@ All combinators satisfy Wadler's algebraic laws from
 (1997), verified by 21 Hedgehog properties:
 
 ```
+x <> (y <> z)      = (x <> y) <> z
+x <> empty         = x
+empty <> x         = x
+text (s ++ t)      = text s <> text t
+text ""            = empty
 nest (i + j) x     = nest i (nest j x)
+nest 0 x           = x
+nest i (x <> y)    = nest i x <> nest i y
+nest i empty       = empty
 nest i (text s)    = text s
+nest i (align x)   = align x
+group empty        = empty
+group (text s <> x) = text s <> group x
 group (nest i x)   = nest i (group x)
+group (align x)    = align (group x)
+align empty        = empty
+align (text s)     = text s
 align (align x)    = align x
 x <$> (y <$> z)   = (x <$> y) <$> z
-...
+x <> (y <$> z)    = (x <> y) <$> z
+x <$> (y <> z)    = (x <$> y) <> z
 ```
 
 ## Fixed points and recursion schemes
@@ -178,26 +197,47 @@ provides an extended recursion scheme library:
 ### Recursion schemes
 
 ```haskell
+-- Basic
 fold            :: (f a -> a) -> Mu f -> a
-foldWithContext  :: Functor f => (f (Mu f, a) -> a) -> Mu f -> a
-foldWithAux     :: Functor f => (f b -> b) -> (f (b, a) -> a) -> Mu f -> a
-foldGen         :: ... -> Mu f -> b               -- generalized (gcata)
-foldM           :: ... -> Mu f -> m a             -- monadic
 unfold          :: (a -> f a) -> a -> Mu f
-unfoldShort     :: (a -> f (Either (Mu f) a)) -> a -> Mu f
-unfoldGen       :: ... -> b -> Mu f               -- generalized (gana)
 refold          :: (f b -> b) -> (a -> f a) -> a -> b
-refoldGen       :: ... -> r -> b                  -- generalized (ghylo)
-refoldM         :: ... -> a -> m b                -- monadic
-elgot           :: ... -> r -> b                  -- unfold with short-circuit
-coelgot         :: ... -> r -> b                  -- fold with original seed
-mutu            :: ... -> Mu f -> c               -- mutual recursion
-comutu          :: ... -> r -> Mu f               -- mutual corecursion
-prepro          :: ... -> Mu f -> c               -- prepromorphism
-postpro         :: ... -> r -> Mu f               -- postpromorphism
+
+-- Paramorphism / zygomorphism
+foldWithContext  :: Functor f => (f (Mu f, a) -> a) -> Mu f -> a
+foldWithAux     :: Functor f => Algebra f b -> (f (b, a) -> a) -> Mu f -> a
+
+-- Generalized (via distributive laws)
+foldGen         :: Functor f => Distribute f (Pair c) -> GAlgebra (Pair c) f b -> Mu f -> b
+unfoldGen       :: (Functor f, Functor n, Monad n) => Distribute n f -> GCoalgebra n f b -> b -> Mu f
+refoldGen       :: (Functor f, Functor n, Monad n) => Distribute f (Pair c) -> Distribute n f -> GAlgebra (Pair c) f b -> GCoalgebra n f r -> r -> b
+
+-- Monadic
+foldM           :: (Traversable f, Monad m) => AlgebraM m f a -> Mu f -> m a
+refoldM         :: (Traversable f, Monad m) => AlgebraM m f b -> CoalgebraM m f a -> a -> m b
+
+-- Apomorphism
+unfoldShort     :: Functor f => (a -> f (Either (Mu f) a)) -> a -> Mu f
+
+-- Elgot algebras
+elgot           :: Functor f => Algebra f b -> (r -> Either b (f r)) -> r -> b
+coelgot         :: Functor f => ((r, f b) -> b) -> Coalgebra f r -> r -> b
+
+-- Mutual recursion
+mutu            :: Functor f => (f (Pair c b) -> b) -> (f (Pair b c) -> c) -> Mu f -> c
+comutu          :: Functor f => (b -> f (Either r b)) -> (r -> f (Either b r)) -> r -> Mu f
+
+-- Pre/postpromorphisms
+prepro          :: Functor f => (forall a. f a -> f a) -> Algebra f c -> Mu f -> c
+postpro         :: Functor f => (forall a. f a -> f a) -> Coalgebra f r -> r -> Mu f
+
+-- Natural transformations
 hoistMu         :: (forall a. f a -> g a) -> Mu f -> Mu g
-comap           :: (Bifunctor f, ...) => (a -> b) -> Mu (f a) -> Mu (f b)
-contramap       :: (Bifunctor f, ...) => (a -> b) -> Mu (f a) -> Mu (f b)
+comap           :: (Bifunctor f, Functor (f a), Functor (f b)) => (a -> b) -> Mu (f a) -> Mu (f b)
+contramap       :: (Bifunctor f, Functor (f a), Functor (f b)) => (a -> b) -> Mu (f a) -> Mu (f b)
+
+-- Effectful hoist
+transverse      :: (Functor f, Functor g) => (forall a. f (g a) -> g (f a)) -> Mu f -> g (Mu f)
+cotransverse    :: (Functor f, Functor g) => (forall a. g (f a) -> f (g a)) -> g (Mu f) -> Mu f
 ```
 
 ### Streaming metamorphisms (Gibbons)
@@ -205,15 +245,15 @@ contramap       :: (Bifunctor f, ...) => (a -> b) -> Mu (f a) -> Mu (f b)
 Generic over the base functor and fixed-point type:
 
 ```haskell
-stream  :: Functor f => (i -> g i) -> (f o -> o) -> ... -> state -> i -> o
-astream :: Functor f => (i -> g i) -> (f o -> o) -> ... -> state -> i -> o
-gstream :: Functor f => (i -> g i) -> (f o -> o) -> ... -> state -> i -> o
+stream  :: Functor f => (i -> g i) -> (f o -> o) -> (state -> Maybe (f state)) -> (state -> ((state -> state) -> i -> o) -> g i -> o) -> state -> i -> o
+astream :: Functor f => (i -> g i) -> (f o -> o) -> (state -> Maybe (f state)) -> (g i -> Pair (state -> state) i) -> state -> i -> o
+gstream :: Functor f => (i -> g i) -> (f o -> o) -> (state -> f state) -> (state -> Maybe (f state)) -> (g i -> Maybe (Pair (state -> state) i)) -> state -> i -> o
 ```
 
 `Cons`-specialized:
 
 ```haskell
-fstream :: (i -> Cons b i) -> (Cons a o -> o) -> ... -> state -> i -> o
+fstream :: (i -> Cons b i) -> (Cons a o -> o) -> (state -> Cons a state) -> (state -> b -> state) -> (state -> Cons a state) -> state -> i -> o
 ```
 
 ### Pattern functor: Cons
@@ -282,8 +322,8 @@ Codensity (Compose u n)  ≅  StateT r n
 ```haskell
 equalDay     :: (Foldable f, Eq1 f)  => Day f f Bool -> Bool
 compareDay   :: (Foldable f, Ord1 f) => Day f f Ordering -> Ordering
-recursiveEq  :: ... => Mu f -> Mu f -> Bool
-recursiveOrd :: ... => Mu f -> Mu f -> Ordering
+recursiveEq  :: (Functor f, Foldable f, Eq1 f) => Mu f -> Mu f -> Bool
+recursiveOrd :: (Functor f, Foldable f, Ord1 f) => Mu f -> Mu f -> Ordering
 ```
 
 ### Hoist fusion via Yoneda

@@ -1,0 +1,495 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="annot"><span class="hs-comment">-- | Text formatting via 'Data.Text.Lazy.Builder'.</span></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.Fmt.Text</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-5"></span><span>    </span><span class="annot"><span class="hs-comment">-- * TextFmt</span></span><span>
+</span><span id="line-6"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#TextFmt"><span class="hs-identifier">TextFmt</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-7"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#runTextFmt"><span class="hs-identifier">runTextFmt</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-8"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#printf"><span class="hs-identifier">printf</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
+</span><span id="line-11"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#cat1With"><span class="hs-identifier">cat1With</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#hsep"><span class="hs-identifier">hsep</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#vsep"><span class="hs-identifier">vsep</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#hang"><span class="hs-identifier">hang</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#list1"><span class="hs-identifier">list1</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Splitting</span></span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#replace1"><span class="hs-identifier">replace1</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#splitWith"><span class="hs-identifier">splitWith</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Running Fmt1</span></span><span>
+</span><span id="line-22"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#run1"><span class="hs-identifier">run1</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Structured output</span></span><span>
+</span><span id="line-25"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#jsonList"><span class="hs-identifier">jsonList</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#yamlList"><span class="hs-identifier">yamlList</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#jsonMap"><span class="hs-identifier">jsonMap</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>    </span><span class="annot"><a href="Data.Fmt.Text.html#yamlMap"><span class="hs-identifier">yamlMap</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toList</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html"><span class="hs-identifier">Data.Fmt.Type</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier">Fmt</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier">Fmt1</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#fmt"><span class="hs-identifier">fmt</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#fmt1"><span class="hs-identifier">fmt1</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#%25"><span class="hs-operator">(%)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.IO</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">TIO</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">TL</span></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Lazy.Builder</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Builder</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromText</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toLazyText</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="annot"><span class="hs-comment">-- | A 'Fmt' specialized to 'Data.Text.Lazy.Builder.Builder'.</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">type</span><span> </span><span id="TextFmt"><span class="annot"><a href="Data.Fmt.Text.html#TextFmt"><span class="hs-identifier hs-var">TextFmt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><span class="hs-comment">-- | Run a 'TextFmt' to produce lazy 'TL.Text'.</span></span><span>
+</span><span id="line-44"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#runTextFmt"><span class="hs-pragma hs-type">runTextFmt</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-45"></span><span id="local-6989586621679087771"><span class="annot"><a href="Data.Fmt.Text.html#runTextFmt"><span class="hs-identifier hs-type">runTextFmt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#TextFmt"><span class="hs-identifier hs-type">TextFmt</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TL.Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087771"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679087771"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-46"></span><span id="runTextFmt"><span class="annot"><span class="annottext">runTextFmt :: forall a. TextFmt Text a -&gt; a
+</span><a href="Data.Fmt.Text.html#runTextFmt"><span class="hs-identifier hs-var hs-var">runTextFmt</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span id="local-6989586621679087890"><span class="annot"><span class="annottext">(Builder -&gt; Text) -&gt; a
+</span><a href="#local-6989586621679087890"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Builder -&gt; Text) -&gt; a
+</span><a href="#local-6989586621679087890"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Builder -&gt; Text
+</span><span class="hs-identifier hs-var">toLazyText</span></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="annot"><span class="hs-comment">-- | Run a 'TextFmt' and print the result to stdout.</span></span><span>
+</span><span id="line-49"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#printf"><span class="hs-pragma hs-type">printf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-50"></span><span id="local-6989586621679087776"><span class="annot"><a href="Data.Fmt.Text.html#printf"><span class="hs-identifier hs-type">printf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#TextFmt"><span class="hs-identifier hs-type">TextFmt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679087776"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679087776"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-51"></span><span id="printf"><span class="annot"><span class="annottext">printf :: forall a. TextFmt (IO ()) a -&gt; a
+</span><a href="Data.Fmt.Text.html#printf"><span class="hs-identifier hs-var hs-var">printf</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span id="local-6989586621679087891"><span class="annot"><span class="annottext">(Builder -&gt; IO ()) -&gt; a
+</span><a href="#local-6989586621679087891"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Builder -&gt; IO ()) -&gt; a
+</span><a href="#local-6989586621679087891"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">((Builder -&gt; IO ()) -&gt; a) -&gt; (Builder -&gt; IO ()) -&gt; a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO ()
+</span><span class="hs-identifier hs-var">TIO.putStr</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; (Builder -&gt; Text) -&gt; Builder -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><span class="hs-identifier hs-var">TL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; (Builder -&gt; Text) -&gt; Builder -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Builder -&gt; Text
+</span><span class="hs-identifier hs-var">toLazyText</span></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- Internal</span><span>
+</span><span id="line-55"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#toStrict"><span class="hs-pragma hs-type">toStrict</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-58"></span><span class="annot"><a href="Data.Fmt.Text.html#toStrict"><span class="hs-identifier hs-type">toStrict</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-59"></span><span id="toStrict"><span class="annot"><span class="annottext">toStrict :: Builder -&gt; Text
+</span><a href="Data.Fmt.Text.html#toStrict"><span class="hs-identifier hs-var hs-var">toStrict</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><span class="hs-identifier hs-var">TL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; (Builder -&gt; Text) -&gt; Builder -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Builder -&gt; Text
+</span><span class="hs-identifier hs-var">toLazyText</span></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="annot"><span class="hs-comment">-- | Run a Fmt1 to strict Text.</span></span><span>
+</span><span id="line-62"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#run1"><span class="hs-pragma hs-type">run1</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-63"></span><span id="local-6989586621679087785"><span class="annot"><a href="Data.Fmt.Text.html#run1"><span class="hs-identifier hs-type">run1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087785"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679087785"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span></span><span>
+</span><span id="line-64"></span><span id="run1"><span class="annot"><span class="annottext">run1 :: forall a. Fmt1 Builder Text a -&gt; a -&gt; Text
+</span><a href="Data.Fmt.Text.html#run1"><span class="hs-identifier hs-var hs-var">run1</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span id="local-6989586621679087896"><span class="annot"><span class="annottext">(Builder -&gt; Text) -&gt; a -&gt; Text
+</span><a href="#local-6989586621679087896"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Builder -&gt; Text) -&gt; a -&gt; Text
+</span><a href="#local-6989586621679087896"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><span class="hs-identifier hs-var">TL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; (Builder -&gt; Text) -&gt; Builder -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Builder -&gt; Text
+</span><span class="hs-identifier hs-var">toLazyText</span></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- Combinators</span><span>
+</span><span id="line-68"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="annot"><span class="hs-comment">-- | Format each value in a foldable and join the results.</span></span><span>
+</span><span id="line-71"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#cat1With"><span class="hs-pragma hs-type">cat1With</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-72"></span><span id="local-6989586621679087788"><span id="local-6989586621679087789"><span id="local-6989586621679087790"><span class="annot"><a href="Data.Fmt.Text.html#cat1With"><span class="hs-identifier hs-type">cat1With</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679087788"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087789"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087790"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087788"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087789"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-77"></span><span id="cat1With"><span class="annot"><span class="annottext">cat1With :: forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#cat1With"><span class="hs-identifier hs-var hs-var">cat1With</span></a></span></span><span> </span><span id="local-6989586621679087899"><span class="annot"><span class="annottext">[Text] -&gt; Text
+</span><a href="#local-6989586621679087899"><span class="hs-identifier hs-var">join</span></a></span></span><span> </span><span id="local-6989586621679087900"><span class="annot"><span class="annottext">Fmt1 Builder Text a
+</span><a href="#local-6989586621679087900"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(f a -&gt; Builder) -&gt; Fmt1 Builder s (f a)
+forall a m s. (a -&gt; m) -&gt; Fmt1 m s a
+</span><a href="Data.Fmt.Type.html#fmt1"><span class="hs-identifier hs-var">fmt1</span></a></span><span> </span><span class="annot"><span class="annottext">((f a -&gt; Builder) -&gt; Fmt1 Builder s (f a))
+-&gt; (f a -&gt; Builder) -&gt; Fmt1 Builder s (f a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Builder
+</span><span class="hs-identifier hs-var">fromText</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Builder) -&gt; (f a -&gt; Text) -&gt; f a -&gt; Builder
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Text
+</span><a href="#local-6989586621679087899"><span class="hs-identifier hs-var">join</span></a></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Text) -&gt; (f a -&gt; [Text]) -&gt; f a -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Text) -&gt; [a] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Fmt1 Builder Text a -&gt; a -&gt; Text
+forall a. Fmt1 Builder Text a -&gt; a -&gt; Text
+</span><a href="Data.Fmt.Text.html#run1"><span class="hs-identifier hs-var">run1</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text a
+</span><a href="#local-6989586621679087900"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">([a] -&gt; [Text]) -&gt; (f a -&gt; [a]) -&gt; f a -&gt; [Text]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; [a]
+forall a. f a -&gt; [a]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span class="annot"><span class="hs-comment">-- | Format each value with spaces in between.</span></span><span>
+</span><span id="line-80"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#hsep"><span class="hs-pragma hs-type">hsep</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-81"></span><span id="local-6989586621679087801"><span id="local-6989586621679087802"><span id="local-6989586621679087803"><span class="annot"><a href="Data.Fmt.Text.html#hsep"><span class="hs-identifier hs-type">hsep</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679087801"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087802"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087803"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087801"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087802"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-82"></span><span id="hsep"><span class="annot"><span class="annottext">hsep :: forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#hsep"><span class="hs-identifier hs-var hs-var">hsep</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#cat1With"><span class="hs-identifier hs-var">cat1With</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.intercalate</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; &quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="annot"><span class="hs-comment">-- | Format each value on its own line.</span></span><span>
+</span><span id="line-85"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#vsep"><span class="hs-pragma hs-type">vsep</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-86"></span><span id="local-6989586621679087906"><span id="local-6989586621679087907"><span id="local-6989586621679087908"><span class="annot"><a href="Data.Fmt.Text.html#vsep"><span class="hs-identifier hs-type">vsep</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679087906"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087907"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087908"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087906"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087907"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-87"></span><span id="vsep"><span class="annot"><span class="annottext">vsep :: forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#vsep"><span class="hs-identifier hs-var hs-var">vsep</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#cat1With"><span class="hs-identifier hs-var">cat1With</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.intercalate</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;\n&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="annot"><span class="hs-comment">-- | Format each value on its own line, indented by @n@ spaces.</span></span><span>
+</span><span id="line-90"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#hang"><span class="hs-pragma hs-type">hang</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-91"></span><span id="local-6989586621679087810"><span id="local-6989586621679087811"><span id="local-6989586621679087812"><span class="annot"><a href="Data.Fmt.Text.html#hang"><span class="hs-identifier hs-type">hang</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679087810"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087811"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087812"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087810"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087811"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-92"></span><span id="hang"><span class="annot"><span class="annottext">hang :: forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+Int -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#hang"><span class="hs-identifier hs-var hs-var">hang</span></a></span></span><span> </span><span id="local-6989586621679087913"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679087913"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679087914"><span class="annot"><span class="annottext">Fmt1 Builder Text a
+</span><a href="#local-6989586621679087914"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(f a -&gt; Builder) -&gt; Fmt1 Builder s (f a)
+forall a m s. (a -&gt; m) -&gt; Fmt1 m s a
+</span><a href="Data.Fmt.Type.html#fmt1"><span class="hs-identifier hs-var">fmt1</span></a></span><span> </span><span class="annot"><span class="annottext">((f a -&gt; Builder) -&gt; Fmt1 Builder s (f a))
+-&gt; (f a -&gt; Builder) -&gt; Fmt1 Builder s (f a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679087915"><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679087915"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679087917"><span class="annot"><span class="annottext">pad :: Text
+</span><a href="#local-6989586621679087917"><span class="hs-identifier hs-var hs-var">pad</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.replicate</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679087913"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; &quot;</span></span><span>
+</span><span id="line-94"></span><span>        </span><span id="local-6989586621679087922"><span class="annot"><span class="annottext">items :: [Text]
+</span><a href="#local-6989586621679087922"><span class="hs-identifier hs-var hs-var">items</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Text) -&gt; [a] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679087923"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679087923"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087917"><span class="hs-identifier hs-var">pad</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text a -&gt; a -&gt; Text
+forall a. Fmt1 Builder Text a -&gt; a -&gt; Text
+</span><a href="Data.Fmt.Text.html#run1"><span class="hs-identifier hs-var">run1</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text a
+</span><a href="#local-6989586621679087914"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679087923"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f a -&gt; [a]
+forall a. f a -&gt; [a]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679087915"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Builder
+</span><span class="hs-identifier hs-var">fromText</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.unlines</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679087922"><span class="hs-identifier hs-var">items</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="annot"><span class="hs-comment">-- | Format in square brackets with comma separation.</span></span><span>
+</span><span id="line-98"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#list1"><span class="hs-pragma hs-type">list1</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-99"></span><span id="local-6989586621679087925"><span id="local-6989586621679087926"><span id="local-6989586621679087927"><span class="annot"><a href="Data.Fmt.Text.html#list1"><span class="hs-identifier hs-type">list1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679087925"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087926"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087927"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087925"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087926"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-100"></span><span id="list1"><span class="annot"><span class="annottext">list1 :: forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#list1"><span class="hs-identifier hs-var hs-var">list1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#cat1With"><span class="hs-identifier hs-var">cat1With</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679087935"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679087935"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;[&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.intercalate</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;, &quot;</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679087935"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;]&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- Splitting</span><span>
+</span><span id="line-104"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- | Split the formatted output using a splitting function, then</span><span>
+</span><span id="line-107"></span><span class="hs-comment">-- rejoin with a custom combinator.</span><span>
+</span><span id="line-108"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#splitWith"><span class="hs-pragma hs-type">splitWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-109"></span><span id="local-6989586621679087820"><span id="local-6989586621679087821"><span id="local-6989586621679087822"><span class="annot"><a href="Data.Fmt.Text.html#splitWith"><span class="hs-identifier hs-type">splitWith</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087820"><span class="hs-identifier hs-type">a2</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087821"><span class="hs-identifier hs-type">a1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087821"><span class="hs-identifier hs-type">a1</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087822"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087820"><span class="hs-identifier hs-type">a2</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087822"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-114"></span><span id="splitWith"><span class="annot"><span class="annottext">splitWith :: forall a2 a1 b.
+(Text -&gt; (Text, Text))
+-&gt; (Text -&gt; Text -&gt; Fmt Builder a2 a1)
+-&gt; Fmt Builder a1 b
+-&gt; Fmt Builder a2 b
+</span><a href="Data.Fmt.Text.html#splitWith"><span class="hs-identifier hs-var hs-var">splitWith</span></a></span></span><span> </span><span id="local-6989586621679087936"><span class="annot"><span class="annottext">Text -&gt; (Text, Text)
+</span><a href="#local-6989586621679087936"><span class="hs-identifier hs-var">brk</span></a></span></span><span> </span><span id="local-6989586621679087937"><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Fmt Builder a2 a1
+</span><a href="#local-6989586621679087937"><span class="hs-identifier hs-var">join</span></a></span></span><span> </span><span id="local-6989586621679087938"><span class="annot"><span class="annottext">Fmt Builder a1 b
+</span><a href="#local-6989586621679087938"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fmt Builder a1 b
+</span><a href="#local-6989586621679087938"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt Builder a1 b
+-&gt; (Builder -&gt; Fmt Builder a2 a1) -&gt; Fmt Builder a2 b
+forall {t} {a} {b} {m} {a}.
+Fmt t a b -&gt; (t -&gt; Fmt m a a) -&gt; Fmt m a b
+</span><a href="#local-6989586621679087939"><span class="hs-operator hs-var">`bind_`</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679087940"><span class="annot"><span class="annottext">Builder
+</span><a href="#local-6989586621679087940"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679087941"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087941"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679087942"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087942"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; (Text, Text)
+</span><a href="#local-6989586621679087936"><span class="hs-identifier hs-var">brk</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Builder -&gt; Text
+</span><a href="Data.Fmt.Text.html#toStrict"><span class="hs-identifier hs-var">toStrict</span></a></span><span> </span><span class="annot"><span class="annottext">Builder
+</span><a href="#local-6989586621679087940"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text -&gt; Fmt Builder a2 a1)
+-&gt; (Text, Text) -&gt; Fmt Builder a2 a1
+forall a b c. (a -&gt; b -&gt; c) -&gt; (a, b) -&gt; c
+</span><span class="hs-identifier hs-var">uncurry</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Fmt Builder a2 a1
+</span><a href="#local-6989586621679087937"><span class="hs-identifier hs-var">join</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087941"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087942"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-118"></span><span>    </span><span id="local-6989586621679087939"><span class="annot"><span class="annottext">bind_ :: Fmt t a b -&gt; (t -&gt; Fmt m a a) -&gt; Fmt m a b
+</span><a href="#local-6989586621679087939"><span class="hs-identifier hs-var hs-var">bind_</span></a></span></span><span> </span><span id="local-6989586621679087944"><span class="annot"><span class="annottext">Fmt t a b
+</span><a href="#local-6989586621679087944"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679087945"><span class="annot"><span class="annottext">t -&gt; Fmt m a a
+</span><a href="#local-6989586621679087945"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((m -&gt; a) -&gt; b) -&gt; Fmt m a b
+forall m a b. ((m -&gt; a) -&gt; b) -&gt; Fmt m a b
+</span><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-var">Fmt</span></a></span><span> </span><span class="annot"><span class="annottext">(((m -&gt; a) -&gt; b) -&gt; Fmt m a b) -&gt; ((m -&gt; a) -&gt; b) -&gt; Fmt m a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679087946"><span class="annot"><span class="annottext">m -&gt; a
+</span><a href="#local-6989586621679087946"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Fmt t a b -&gt; (t -&gt; a) -&gt; b
+forall m a b. Fmt m a b -&gt; (m -&gt; a) -&gt; b
+</span><a href="Data.Fmt.Type.html#unFmt"><span class="hs-identifier hs-var">unFmt</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt t a b
+</span><a href="#local-6989586621679087944"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679087948"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679087948"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Fmt m a a -&gt; (m -&gt; a) -&gt; a
+forall m a b. Fmt m a b -&gt; (m -&gt; a) -&gt; b
+</span><a href="Data.Fmt.Type.html#unFmt"><span class="hs-identifier hs-var">unFmt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t -&gt; Fmt m a a
+</span><a href="#local-6989586621679087945"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679087948"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m -&gt; a
+</span><a href="#local-6989586621679087946"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="annot"><span class="hs-comment">-- | Replace the first occurrence of a search term.</span></span><span>
+</span><span id="line-121"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#replace1"><span class="hs-pragma hs-type">replace1</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-122"></span><span id="local-6989586621679087840"><span id="local-6989586621679087841"><span class="annot"><a href="Data.Fmt.Text.html#replace1"><span class="hs-identifier hs-type">replace1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087840"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087840"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087840"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087841"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt"><span class="hs-identifier hs-type">Fmt</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087840"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087841"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-123"></span><span id="replace1"><span class="annot"><span class="annottext">replace1 :: forall a b.
+Text -&gt; Fmt Builder a a -&gt; Fmt Builder a b -&gt; Fmt Builder a b
+</span><a href="Data.Fmt.Text.html#replace1"><span class="hs-identifier hs-var hs-var">replace1</span></a></span></span><span> </span><span id="local-6989586621679087954"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087954"><span class="hs-identifier hs-var">needle</span></a></span></span><span> </span><span id="local-6989586621679087955"><span class="annot"><span class="annottext">Fmt Builder a a
+</span><a href="#local-6989586621679087955"><span class="hs-identifier hs-var">replacement</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-124"></span><span>    </span><span class="annot"><span class="annottext">(Text -&gt; (Text, Text))
+-&gt; (Text -&gt; Text -&gt; Fmt Builder a a)
+-&gt; Fmt Builder a b
+-&gt; Fmt Builder a b
+forall a2 a1 b.
+(Text -&gt; (Text, Text))
+-&gt; (Text -&gt; Text -&gt; Fmt Builder a2 a1)
+-&gt; Fmt Builder a1 b
+-&gt; Fmt Builder a2 b
+</span><a href="Data.Fmt.Text.html#splitWith"><span class="hs-identifier hs-var">splitWith</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; (Text, Text)
+Text -&gt; Text -&gt; (Text, Text)
+</span><span class="hs-identifier hs-var">T.breakOn</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087954"><span class="hs-identifier hs-var">needle</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Text -&gt; Text -&gt; Fmt Builder a a)
+ -&gt; Fmt Builder a b -&gt; Fmt Builder a b)
+-&gt; (Text -&gt; Text -&gt; Fmt Builder a a)
+-&gt; Fmt Builder a b
+-&gt; Fmt Builder a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679087957"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087957"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span id="local-6989586621679087958"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087958"><span class="hs-identifier hs-var">r0</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-125"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Maybe Text
+</span><span class="hs-identifier hs-var">T.stripPrefix</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087954"><span class="hs-identifier hs-var">needle</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087958"><span class="hs-identifier hs-var">r0</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-126"></span><span>            </span><span class="annot"><span class="annottext">Maybe Text
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Builder -&gt; Fmt Builder a a
+forall m a. m -&gt; Fmt m a a
+</span><a href="Data.Fmt.Type.html#fmt"><span class="hs-identifier hs-var">fmt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Builder
+</span><span class="hs-identifier hs-var">fromText</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087957"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679087960"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087960"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Builder -&gt; Fmt Builder a a
+forall m a. m -&gt; Fmt m a a
+</span><a href="Data.Fmt.Type.html#fmt"><span class="hs-identifier hs-var">fmt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Builder
+</span><span class="hs-identifier hs-var">fromText</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087957"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Fmt Builder a a -&gt; Fmt Builder a a -&gt; Fmt Builder a a
+forall m b c a. Semigroup m =&gt; Fmt m b c -&gt; Fmt m a b -&gt; Fmt m a c
+</span><a href="Data.Fmt.Type.html#%25"><span class="hs-operator hs-var">%</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt Builder a a
+</span><a href="#local-6989586621679087955"><span class="hs-identifier hs-var">replacement</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt Builder a a -&gt; Fmt Builder a a -&gt; Fmt Builder a a
+forall m b c a. Semigroup m =&gt; Fmt m b c -&gt; Fmt m a b -&gt; Fmt m a c
+</span><a href="Data.Fmt.Type.html#%25"><span class="hs-operator hs-var">%</span></a></span><span> </span><span class="annot"><span class="annottext">Builder -&gt; Fmt Builder a a
+forall m a. m -&gt; Fmt m a a
+</span><a href="Data.Fmt.Type.html#fmt"><span class="hs-identifier hs-var">fmt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Builder
+</span><span class="hs-identifier hs-var">fromText</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679087960"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-130"></span><span class="hs-comment">-- Structured output</span><span>
+</span><span id="line-131"></span><span class="hs-comment">---------------------------------------------------------------------</span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span class="annot"><span class="hs-comment">-- | Format a foldable as a JSON-style list.</span></span><span>
+</span><span id="line-134"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#jsonList"><span class="hs-pragma hs-type">jsonList</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-135"></span><span id="local-6989586621679087961"><span id="local-6989586621679087962"><span id="local-6989586621679087963"><span class="annot"><a href="Data.Fmt.Text.html#jsonList"><span class="hs-identifier hs-type">jsonList</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679087961"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087962"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087963"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087961"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087962"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-136"></span><span id="jsonList"><span class="annot"><span class="annottext">jsonList :: forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#jsonList"><span class="hs-identifier hs-var hs-var">jsonList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#cat1With"><span class="hs-identifier hs-var">cat1With</span></a></span><span> </span><span class="annot"><span class="annottext">(([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a))
+-&gt; ([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679087971"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679087971"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;[&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.intercalate</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;, &quot;</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679087971"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;]&quot;</span></span><span>
+</span><span id="line-137"></span><span>
+</span><span id="line-138"></span><span class="annot"><span class="hs-comment">-- | Format a foldable as a YAML-style list.</span></span><span>
+</span><span id="line-139"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#yamlList"><span class="hs-pragma hs-type">yamlList</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-140"></span><span id="local-6989586621679087972"><span id="local-6989586621679087973"><span id="local-6989586621679087974"><span class="annot"><a href="Data.Fmt.Text.html#yamlList"><span class="hs-identifier hs-type">yamlList</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679087972"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087973"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087974"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087972"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679087973"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-141"></span><span id="yamlList"><span class="annot"><span class="annottext">yamlList :: forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#yamlList"><span class="hs-identifier hs-var hs-var">yamlList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+forall (f :: * -&gt; *) a s.
+Foldable f =&gt;
+([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+</span><a href="Data.Fmt.Text.html#cat1With"><span class="hs-identifier hs-var">cat1With</span></a></span><span> </span><span class="annot"><span class="annottext">(([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a))
+-&gt; ([Text] -&gt; Text) -&gt; Fmt1 Builder Text a -&gt; Fmt1 Builder s (f a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679087979"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679087979"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.unlines</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; [Text] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;- &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679087979"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span class="annot"><span class="hs-comment">-- | Format key-value pairs as a JSON-style map.</span></span><span>
+</span><span id="line-144"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#jsonMap"><span class="hs-pragma hs-type">jsonMap</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-145"></span><span id="local-6989586621679087857"><span id="local-6989586621679087858"><span id="local-6989586621679087859"><span id="local-6989586621679087860"><span class="annot"><a href="Data.Fmt.Text.html#jsonMap"><span class="hs-identifier hs-type">jsonMap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679087857"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087858"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087859"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679087860"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087857"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087858"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679087859"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-146"></span><span id="jsonMap"><span class="annot"><span class="annottext">jsonMap :: forall (f :: * -&gt; *) k v s.
+Foldable f =&gt;
+Fmt1 Builder Text k
+-&gt; Fmt1 Builder Text v -&gt; Fmt1 Builder s (f (k, v))
+</span><a href="Data.Fmt.Text.html#jsonMap"><span class="hs-identifier hs-var hs-var">jsonMap</span></a></span></span><span> </span><span id="local-6989586621679087986"><span class="annot"><span class="annottext">Fmt1 Builder Text k
+</span><a href="#local-6989586621679087986"><span class="hs-identifier hs-var">kf</span></a></span></span><span> </span><span id="local-6989586621679087987"><span class="annot"><span class="annottext">Fmt1 Builder Text v
+</span><a href="#local-6989586621679087987"><span class="hs-identifier hs-var">vf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(f (k, v) -&gt; Builder) -&gt; Fmt1 Builder s (f (k, v))
+forall a m s. (a -&gt; m) -&gt; Fmt1 m s a
+</span><a href="Data.Fmt.Type.html#fmt1"><span class="hs-identifier hs-var">fmt1</span></a></span><span> </span><span class="annot"><span class="annottext">((f (k, v) -&gt; Builder) -&gt; Fmt1 Builder s (f (k, v)))
+-&gt; (f (k, v) -&gt; Builder) -&gt; Fmt1 Builder s (f (k, v))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679087988"><span class="annot"><span class="annottext">f (k, v)
+</span><a href="#local-6989586621679087988"><span class="hs-identifier hs-var">kvs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-147"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679087990"><span class="annot"><span class="annottext">items :: [Text]
+</span><a href="#local-6989586621679087990"><span class="hs-identifier hs-var hs-var">items</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((k, v) -&gt; Text) -&gt; [(k, v)] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">(k, v) -&gt; Text
+</span><a href="#local-6989586621679087991"><span class="hs-identifier hs-var">fmtPair</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (k, v) -&gt; [(k, v)]
+forall a. f a -&gt; [a]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="annot"><span class="annottext">f (k, v)
+</span><a href="#local-6989586621679087988"><span class="hs-identifier hs-var">kvs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>        </span><span id="local-6989586621679087991"><span class="annot"><span class="annottext">fmtPair :: (k, v) -&gt; Text
+</span><a href="#local-6989586621679087991"><span class="hs-identifier hs-var hs-var">fmtPair</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679087995"><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679087995"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679087996"><span class="annot"><span class="annottext">v
+</span><a href="#local-6989586621679087996"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text k -&gt; k -&gt; Text
+forall a. Fmt1 Builder Text a -&gt; a -&gt; Text
+</span><a href="Data.Fmt.Text.html#run1"><span class="hs-identifier hs-var">run1</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text k
+</span><a href="#local-6989586621679087986"><span class="hs-identifier hs-var">kf</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679087995"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text v -&gt; v -&gt; Text
+forall a. Fmt1 Builder Text a -&gt; a -&gt; Text
+</span><a href="Data.Fmt.Text.html#run1"><span class="hs-identifier hs-var">run1</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text v
+</span><a href="#local-6989586621679087987"><span class="hs-identifier hs-var">vf</span></a></span><span> </span><span class="annot"><span class="annottext">v
+</span><a href="#local-6989586621679087996"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-149"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Builder
+</span><span class="hs-identifier hs-var">fromText</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Builder) -&gt; Text -&gt; Builder
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;{&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.intercalate</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;, &quot;</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679087990"><span class="hs-identifier hs-var">items</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;}&quot;</span></span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span class="annot"><span class="hs-comment">-- | Format key-value pairs as a YAML-style map.</span></span><span>
+</span><span id="line-152"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Fmt.Text.html#yamlMap"><span class="hs-pragma hs-type">yamlMap</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-153"></span><span id="local-6989586621679087997"><span id="local-6989586621679087998"><span id="local-6989586621679087999"><span id="local-6989586621679088000"><span class="annot"><a href="Data.Fmt.Text.html#yamlMap"><span class="hs-identifier hs-type">yamlMap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679087997"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087998"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679087999"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Fmt.Type.html#Fmt1"><span class="hs-identifier hs-type">Fmt1</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder</span></span><span> </span><span class="annot"><a href="#local-6989586621679088000"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087997"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679087998"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679087999"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-154"></span><span id="yamlMap"><span class="annot"><span class="annottext">yamlMap :: forall (f :: * -&gt; *) k v s.
+Foldable f =&gt;
+Fmt1 Builder Text k
+-&gt; Fmt1 Builder Text v -&gt; Fmt1 Builder s (f (k, v))
+</span><a href="Data.Fmt.Text.html#yamlMap"><span class="hs-identifier hs-var hs-var">yamlMap</span></a></span></span><span> </span><span id="local-6989586621679088002"><span class="annot"><span class="annottext">Fmt1 Builder Text k
+</span><a href="#local-6989586621679088002"><span class="hs-identifier hs-var">kf</span></a></span></span><span> </span><span id="local-6989586621679088003"><span class="annot"><span class="annottext">Fmt1 Builder Text v
+</span><a href="#local-6989586621679088003"><span class="hs-identifier hs-var">vf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(f (k, v) -&gt; Builder) -&gt; Fmt1 Builder s (f (k, v))
+forall a m s. (a -&gt; m) -&gt; Fmt1 m s a
+</span><a href="Data.Fmt.Type.html#fmt1"><span class="hs-identifier hs-var">fmt1</span></a></span><span> </span><span class="annot"><span class="annottext">((f (k, v) -&gt; Builder) -&gt; Fmt1 Builder s (f (k, v)))
+-&gt; (f (k, v) -&gt; Builder) -&gt; Fmt1 Builder s (f (k, v))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679088004"><span class="annot"><span class="annottext">f (k, v)
+</span><a href="#local-6989586621679088004"><span class="hs-identifier hs-var">kvs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-155"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679088006"><span class="annot"><span class="annottext">items :: [Text]
+</span><a href="#local-6989586621679088006"><span class="hs-identifier hs-var hs-var">items</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((k, v) -&gt; Text) -&gt; [(k, v)] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">(k, v) -&gt; Text
+</span><a href="#local-6989586621679088007"><span class="hs-identifier hs-var">fmtPair</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (k, v) -&gt; [(k, v)]
+forall a. f a -&gt; [a]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="annot"><span class="annottext">f (k, v)
+</span><a href="#local-6989586621679088004"><span class="hs-identifier hs-var">kvs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-156"></span><span>        </span><span id="local-6989586621679088007"><span class="annot"><span class="annottext">fmtPair :: (k, v) -&gt; Text
+</span><a href="#local-6989586621679088007"><span class="hs-identifier hs-var hs-var">fmtPair</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679088011"><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679088011"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679088012"><span class="annot"><span class="annottext">v
+</span><a href="#local-6989586621679088012"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text k -&gt; k -&gt; Text
+forall a. Fmt1 Builder Text a -&gt; a -&gt; Text
+</span><a href="Data.Fmt.Text.html#run1"><span class="hs-identifier hs-var">run1</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text k
+</span><a href="#local-6989586621679088002"><span class="hs-identifier hs-var">kf</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679088011"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text v -&gt; v -&gt; Text
+forall a. Fmt1 Builder Text a -&gt; a -&gt; Text
+</span><a href="Data.Fmt.Text.html#run1"><span class="hs-identifier hs-var">run1</span></a></span><span> </span><span class="annot"><span class="annottext">Fmt1 Builder Text v
+</span><a href="#local-6989586621679088003"><span class="hs-identifier hs-var">vf</span></a></span><span> </span><span class="annot"><span class="annottext">v
+</span><a href="#local-6989586621679088012"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-157"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Builder
+</span><span class="hs-identifier hs-var">fromText</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Builder) -&gt; Text -&gt; Builder
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.unlines</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679088006"><span class="hs-identifier hs-var">items</span></a></span><span>
+</span><span id="line-158"></span></pre></body></html>

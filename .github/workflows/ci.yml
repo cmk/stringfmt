@@ -43,3 +43,46 @@ jobs:
 
       - name: Test
         run: cabal test all --enable-tests
+
+  haddock:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout scheme-extensions
+        uses: actions/checkout@v4
+        with:
+          repository: cmk/scheme-extensions
+          path: scheme-extensions
+
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.6'
+
+      - name: Configure project
+        run: |
+          printf 'packages: .\noptional-packages: scheme-extensions\n' > cabal.project
+
+      - name: Cache cabal store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cabal/store
+          key: ${{ runner.os }}-ghc-9.6-cabal-${{ hashFiles('**/*.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-ghc-9.6-cabal-
+
+      - name: Build haddocks
+        run: cabal haddock all --haddock-hyperlink-source
+
+      - name: Collect haddocks
+        run: |
+          mkdir -p docs
+          cp -r dist-newstyle/build/x86_64-linux/ghc-*/stringfmt-*/doc/html/stringfmt/* docs/ || true
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs

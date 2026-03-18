@@ -1,3 +1,4 @@
+[![Haddocks](https://img.shields.io/badge/docs-haddocks-blue)](https://cmk.github.io/stringfmt/)
 [![CI](https://github.com/cmk/stringfmt/actions/workflows/ci.yml/badge.svg)](https://github.com/cmk/stringfmt/actions/workflows/ci.yml)
 
 # stringfmt

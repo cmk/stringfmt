@@ -1,3 +1,5 @@
+[![CI](https://github.com/cmk/stringfmt/actions/workflows/ci.yml/badge.svg)](https://github.com/cmk/stringfmt/actions/workflows/ci.yml)
+
 # stringfmt
 
 Type-safe string formatting and pretty-printing as an indexed

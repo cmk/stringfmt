@@ -1,7 +1,8 @@
 -- | Numeric and binary encoding formatters.
 --
--- Builder-based, no fast-logger dependency. Every encoder is a
--- 'Fmt1' that formats a value into a 'Builder'.
+-- All numeric encoders are polymorphic over @IsString m@,
+-- so they work with any output type (String, Text.Builder,
+-- ByteString.Builder, etc.).
 --
 -- Naming follows C printf conventions:
 --
@@ -12,12 +13,6 @@ module Data.Fmt.Code (
     -- * Generic (IsString m)
     c,
     s,
-
-    -- * Character encodings (Builder)
-    c7,
-    c8,
-    s7,
-    s8,
 
     -- * Floating point
     e,
@@ -47,7 +42,13 @@ module Data.Fmt.Code (
     llx,
     llx',
 
-    -- * Binary encodings
+    -- * Character encodings (Builder-specific)
+    c7,
+    c8,
+    s7,
+    s8,
+
+    -- * Binary encodings (Builder-specific)
     b,
     b',
     hhb,
@@ -62,6 +63,7 @@ module Data.Fmt.Code (
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as BL
+import Data.Char (intToDigit)
 import Data.Fmt.Type (Fmt1, fmt1)
 import Data.Int
 import Data.String (IsString, fromString)
@@ -81,6 +83,125 @@ c = fmt1 (fromString . pure)
 {-# INLINE s #-}
 s :: (IsString m, Show a) => Fmt1 m s a
 s = fmt1 (fromString . show)
+
+---------------------------------------------------------------------
+-- Floating point
+---------------------------------------------------------------------
+
+-- | Scientific notation with @prec@ digits of precision.
+e :: (IsString m, RealFloat a) => Int -> Fmt1 m s a
+e prec = fmt1 $ fromString . flip (N.showEFloat $ Just prec) []
+
+-- | Fixed-point notation with @prec@ digits after the decimal.
+f :: (IsString m, RealFloat a) => Int -> Fmt1 m s a
+f prec = fmt1 $ fromString . flip (N.showFFloat $ Just prec) []
+
+-- | General notation (shorter of 'e' and 'f').
+g :: (IsString m, RealFloat a) => Int -> Fmt1 m s a
+g prec = fmt1 $ fromString . flip (N.showGFloat $ Just prec) []
+
+---------------------------------------------------------------------
+-- Decimal encodings
+---------------------------------------------------------------------
+
+-- | Decimal encoding of an 'Int'.
+{-# INLINE d #-}
+d :: IsString m => Fmt1 m s Int
+d = fmt1 (fromString . show)
+
+-- | Decimal encoding of an 'Int8'.
+{-# INLINE hhd #-}
+hhd :: IsString m => Fmt1 m s Int8
+hhd = fmt1 (fromString . show)
+
+-- | Decimal encoding of an 'Int16'.
+{-# INLINE hd #-}
+hd :: IsString m => Fmt1 m s Int16
+hd = fmt1 (fromString . show)
+
+-- | Decimal encoding of an 'Int32'.
+{-# INLINE ld #-}
+ld :: IsString m => Fmt1 m s Int32
+ld = fmt1 (fromString . show)
+
+-- | Decimal encoding of an 'Int64'.
+{-# INLINE lld #-}
+lld :: IsString m => Fmt1 m s Int64
+lld = fmt1 (fromString . show)
+
+-- | Decimal encoding of a 'Word'.
+{-# INLINE u #-}
+u :: IsString m => Fmt1 m s Word
+u = fmt1 (fromString . show)
+
+-- | Decimal encoding of a 'Word8'.
+{-# INLINE hhu #-}
+hhu :: IsString m => Fmt1 m s Word8
+hhu = fmt1 (fromString . show)
+
+-- | Decimal encoding of a 'Word16'.
+{-# INLINE hu #-}
+hu :: IsString m => Fmt1 m s Word16
+hu = fmt1 (fromString . show)
+
+-- | Decimal encoding of a 'Word32'.
+{-# INLINE lu #-}
+lu :: IsString m => Fmt1 m s Word32
+lu = fmt1 (fromString . show)
+
+-- | Decimal encoding of a 'Word64'.
+{-# INLINE llu #-}
+llu :: IsString m => Fmt1 m s Word64
+llu = fmt1 (fromString . show)
+
+---------------------------------------------------------------------
+-- Hexadecimal encodings
+---------------------------------------------------------------------
+
+-- | Shortest hex of a 'Word', lower-case.
+{-# INLINE x #-}
+x :: IsString m => Fmt1 m s Word
+x = fmt1 (fromString . flip N.showHex "")
+
+-- | Shortest hex of a 'Word8', lower-case.
+{-# INLINE hhx #-}
+hhx :: IsString m => Fmt1 m s Word8
+hhx = fmt1 (fromString . flip N.showHex "")
+
+-- | Fixed-width hex of a 'Word8' (2 nibbles).
+{-# INLINE hhx' #-}
+hhx' :: IsString m => Fmt1 m s Word8
+hhx' = fmt1 (fromString . padHex 2)
+
+-- | Shortest hex of a 'Word16', lower-case.
+{-# INLINE hx #-}
+hx :: IsString m => Fmt1 m s Word16
+hx = fmt1 (fromString . flip N.showHex "")
+
+-- | Fixed-width hex of a 'Word16' (4 nibbles).
+{-# INLINE hx' #-}
+hx' :: IsString m => Fmt1 m s Word16
+hx' = fmt1 (fromString . padHex 4)
+
+-- | Shortest hex of a 'Word32', lower-case.
+{-# INLINE lx #-}
+lx :: IsString m => Fmt1 m s Word32
+lx = fmt1 (fromString . flip N.showHex "")
+
+-- | Fixed-width hex of a 'Word32' (8 nibbles).
+{-# INLINE lx' #-}
+lx' :: IsString m => Fmt1 m s Word32
+lx' = fmt1 (fromString . padHex 8)
+
+-- | Shortest hex of a 'Word64', lower-case.
+{-# INLINE llx #-}
+llx :: IsString m => Fmt1 m s Word64
+llx = fmt1 (fromString . flip N.showHex "")
+
+-- | Fixed-width hex of a 'Word64' (16 nibbles).
+{-# INLINE llx' #-}
+llx' :: IsString m => Fmt1 m s Word64
+llx' = fmt1 (fromString . padHex 16)
 
 ---------------------------------------------------------------------
 -- Character encodings (Builder-specific)
@@ -107,126 +228,7 @@ s8 :: Fmt1 B.Builder s String
 s8 = fmt1 B.string8
 
 ---------------------------------------------------------------------
--- Floating point
----------------------------------------------------------------------
-
--- | Scientific notation with @prec@ digits of precision.
-e :: (IsString m, RealFloat a) => Int -> Fmt1 m s a
-e prec = fmt1 $ fromString . flip (N.showEFloat $ Just prec) []
-
--- | Fixed-point notation with @prec@ digits after the decimal.
-f :: (IsString m, RealFloat a) => Int -> Fmt1 m s a
-f prec = fmt1 $ fromString . flip (N.showFFloat $ Just prec) []
-
--- | General notation (shorter of 'e' and 'f').
-g :: (IsString m, RealFloat a) => Int -> Fmt1 m s a
-g prec = fmt1 $ fromString . flip (N.showGFloat $ Just prec) []
-
----------------------------------------------------------------------
--- Decimal encodings
----------------------------------------------------------------------
-
--- | Decimal encoding of an 'Int'.
-{-# INLINE d #-}
-d :: Fmt1 B.Builder s Int
-d = fmt1 B.intDec
-
--- | Decimal encoding of an 'Int8'.
-{-# INLINE hhd #-}
-hhd :: Fmt1 B.Builder s Int8
-hhd = fmt1 B.int8Dec
-
--- | Decimal encoding of an 'Int16'.
-{-# INLINE hd #-}
-hd :: Fmt1 B.Builder s Int16
-hd = fmt1 B.int16Dec
-
--- | Decimal encoding of an 'Int32'.
-{-# INLINE ld #-}
-ld :: Fmt1 B.Builder s Int32
-ld = fmt1 B.int32Dec
-
--- | Decimal encoding of an 'Int64'.
-{-# INLINE lld #-}
-lld :: Fmt1 B.Builder s Int64
-lld = fmt1 B.int64Dec
-
--- | Decimal encoding of a 'Word'.
-{-# INLINE u #-}
-u :: Fmt1 B.Builder s Word
-u = fmt1 B.wordDec
-
--- | Decimal encoding of a 'Word8'.
-{-# INLINE hhu #-}
-hhu :: Fmt1 B.Builder s Word8
-hhu = fmt1 B.word8Dec
-
--- | Decimal encoding of a 'Word16'.
-{-# INLINE hu #-}
-hu :: Fmt1 B.Builder s Word16
-hu = fmt1 B.word16Dec
-
--- | Decimal encoding of a 'Word32'.
-{-# INLINE lu #-}
-lu :: Fmt1 B.Builder s Word32
-lu = fmt1 B.word32Dec
-
--- | Decimal encoding of a 'Word64'.
-{-# INLINE llu #-}
-llu :: Fmt1 B.Builder s Word64
-llu = fmt1 B.word64Dec
-
----------------------------------------------------------------------
--- Hexadecimal encodings
----------------------------------------------------------------------
-
--- | Shortest hex of a 'Word', lower-case.
-{-# INLINE x #-}
-x :: Fmt1 B.Builder s Word
-x = fmt1 B.wordHex
-
--- | Shortest hex of a 'Word8', lower-case.
-{-# INLINE hhx #-}
-hhx :: Fmt1 B.Builder s Word8
-hhx = fmt1 B.word8Hex
-
--- | Fixed-width hex of a 'Word8' (2 nibbles).
-{-# INLINE hhx' #-}
-hhx' :: Fmt1 B.Builder s Word8
-hhx' = fmt1 B.word8HexFixed
-
--- | Shortest hex of a 'Word16', lower-case.
-{-# INLINE hx #-}
-hx :: Fmt1 B.Builder s Word16
-hx = fmt1 B.word16Hex
-
--- | Fixed-width hex of a 'Word16' (4 nibbles).
-{-# INLINE hx' #-}
-hx' :: Fmt1 B.Builder s Word16
-hx' = fmt1 B.word16HexFixed
-
--- | Shortest hex of a 'Word32', lower-case.
-{-# INLINE lx #-}
-lx :: Fmt1 B.Builder s Word32
-lx = fmt1 B.word32Hex
-
--- | Fixed-width hex of a 'Word32' (8 nibbles).
-{-# INLINE lx' #-}
-lx' :: Fmt1 B.Builder s Word32
-lx' = fmt1 B.word32HexFixed
-
--- | Shortest hex of a 'Word64', lower-case.
-{-# INLINE llx #-}
-llx :: Fmt1 B.Builder s Word64
-llx = fmt1 B.word64Hex
-
--- | Fixed-width hex of a 'Word64' (16 nibbles).
-{-# INLINE llx' #-}
-llx' :: Fmt1 B.Builder s Word64
-llx' = fmt1 B.word64HexFixed
-
----------------------------------------------------------------------
--- Binary encodings
+-- Binary encodings (Builder-specific)
 ---------------------------------------------------------------------
 
 -- | Embed a lazy 'BL.ByteString'.
@@ -273,3 +275,12 @@ llb = fmt1 B.word64LE
 {-# INLINE llb' #-}
 llb' :: Fmt1 B.Builder s Word64
 llb' = fmt1 B.word64BE
+
+---------------------------------------------------------------------
+-- Helpers
+---------------------------------------------------------------------
+
+-- | Pad a hex string to a fixed width with leading zeros.
+padHex :: (Integral a, Show a) => Int -> a -> String
+padHex width n = let hex = N.showHex n ""
+                  in replicate (max 0 (width - length hex)) '0' ++ hex

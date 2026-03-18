@@ -8,7 +8,7 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 import Data.Fmt.Fixed (fold, wrap)
-import Data.Fmt.Functor (FmtF (..), Tree)
+import Data.Fmt.Functor (Doc (..), Tree)
 import Data.String (fromString)
 
 tests :: IO Bool

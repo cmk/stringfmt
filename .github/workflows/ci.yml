@@ -27,11 +27,8 @@ jobs:
 
       - name: Configure project
         run: |
-          cat > cabal.project.local << EOF
-          packages: .
-          optional-packages: scheme-extensions
-          tests: True
-          EOF
+          printf 'packages: .\noptional-packages: scheme-extensions\n' > cabal.project
+          printf 'tests: True\n' > cabal.project.local
 
       - name: Cache cabal store
         uses: actions/cache@v4
@@ -42,7 +39,7 @@ jobs:
             ${{ runner.os }}-ghc-${{ matrix.ghc }}-cabal-
 
       - name: Build
-        run: cabal build all
+        run: cabal build all --enable-tests
 
       - name: Test
-        run: cabal test all
+        run: cabal test all --enable-tests

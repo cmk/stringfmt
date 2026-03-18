@@ -180,7 +180,7 @@ upstream package. The boundary:
 
 **Stays in stringfmt (formatting-specific):**
 - Fmt type + Cosieve/Corepresentable instances
-- FmtF pattern functor, Tree type alias
+- Doc pattern functor, Tree type alias
 - Pretty-printer API (smart constructors, combinators, layout, render)
 - ByteString/Text/String output modules
 - Code (numeric encoders)

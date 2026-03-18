@@ -3,7 +3,7 @@
 ## Scope
 
 Test everything we've built so far: `Fix` recursion scheme laws,
-`FmtF`/`Tree` instances, `Fmt` core properties (Yoneda, Day),
+`Doc`/`Tree` instances, `Fmt` core properties (Yoneda, Day),
 `Data.Fmt.String.Builder`. Property skeletons first (all red),
 then green them one at a time.
 
@@ -41,7 +41,7 @@ later sprints.
 | P8   | `unfold unwrap = id` (identity unfold)                    |
 
 For P1–P8, use a simple test functor (e.g. `Cons Int` or
-`FmtF String ()`) with generated trees of bounded depth.
+`Doc String ()`) with generated trees of bounded depth.
 
 ### S1.3 — Tree instances (P9–P14)
 

@@ -91,10 +91,10 @@ with width-sensitive layout.
 ### Document type
 
 ```haskell
-type Tree m ann = Mu (FmtF m ann)
+type Tree m ann = Mu (Doc m ann)
 ```
 
-`Tree` is the fixed point of the `FmtF` pattern functor —
+`Tree` is the fixed point of the `Doc` pattern functor —
 a document tree that can be laid out at different widths.
 It is a `Semigroup`, `Monoid`, and `IsString`, so it works
 as the monoid in `Fmt (Tree m ann) a b`.

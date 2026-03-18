@@ -3,7 +3,7 @@
 
 -- | Pattern functor for document trees.
 --
--- @FmtF m ann@ is the base functor for pretty-printer documents,
+-- @Doc m ann@ is the base functor for pretty-printer documents,
 -- parametric over content type @m@ and annotation type @ann@.
 --
 -- Changes from prettyprinter's @DocF@:
@@ -13,7 +13,7 @@
 -- * @Fail@ retained for lazy failure propagation through @Column@/@Nesting@
 module Data.Fmt.Functor (
     -- * Pattern functor
-    FmtF (..),
+    Doc (..),
 
     -- * Tree
     Tree,
@@ -27,7 +27,7 @@ import Data.String (IsString (..))
 -- @r@ marks recursive positions. @m@ is the content type
 -- (e.g. 'Data.Text.Text', 'Data.ByteString.Builder.Builder').
 -- @ann@ is the annotation type (e.g. ANSI styles, HTML tags).
-data FmtF m ann r
+data Doc m ann r
     = -- | Layout failure. Produced by 'Data.Fmt.Tree.flatten' on
       -- hard line breaks; consumed by the layout algorithm to
       -- reject a flattened branch.
@@ -57,8 +57,8 @@ data FmtF m ann r
       Nesting (Int -> r)
     deriving (Functor)
 
--- | A document tree: the initial algebra of @FmtF m ann@.
-type Tree m ann = Mu (FmtF m ann)
+-- | A document tree: the initial algebra of @Doc m ann@.
+type Tree m ann = Mu (Doc m ann)
 
 ---------------------------------------------------------------------
 -- Instances

@@ -319,7 +319,7 @@ fold2 :: ...
 
 ## Deferred
 
-- Day convolution for `FmtF` specifically (needs careful thought
+- Day convolution for `Doc` specifically (needs careful thought
   about function-valued constructors `Column`/`Nesting` — these
   block `Foldable`, so `equalDay`/`compareDay` won't work for
   `Tree` directly)

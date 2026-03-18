@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
--- | Pretty-printer API over 'FmtF' document trees.
+-- | Pretty-printer API over 'Doc' document trees.
 --
 -- Smart constructors, combinators, layout algorithms, and rendering.
 module Data.Fmt.Tree (
@@ -96,7 +96,7 @@ module Data.Fmt.Tree (
 
 import Data.Fmt.Cons (Cons (..))
 import Data.Fmt.Fixed (Mu, Nu (..), fold, foldWithContext, hoistMu, unwrap, wrap)
-import Data.Fmt.Functor (FmtF (..), Tree)
+import Data.Fmt.Functor (Doc (..), Tree)
 import Data.String (IsString (..))
 
 ---------------------------------------------------------------------

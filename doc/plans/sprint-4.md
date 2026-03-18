@@ -4,7 +4,7 @@
 
 Define the token type and `SimpleDocStream` equivalent as
 `Fix (Cons token)`. Implement the layout algorithm as a `refold`
-from `Fix (FmtF m ann)` to `Fix (Cons (Token m ann))`, plus
+from `Fix (Doc m ann)` to `Fix (Cons (Token m ann))`, plus
 rendering from token stream to `Builder`.
 
 ## Rationale

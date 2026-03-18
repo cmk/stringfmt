@@ -12,7 +12,7 @@
 -- * "Data.Fmt.String" — @StringFmt@, @runStringFmt@
 -- * "Data.Fmt.Fixed" — fixed points (@Mu@, @Fix@, @Nu@) and recursion schemes
 -- * "Data.Fmt.Cons" — @Cons@ pattern functor, streaming metamorphisms
--- * "Data.Fmt.Functor" — @FmtF@ pattern functor, @Tree@ type alias
+-- * "Data.Fmt.Functor" — @Doc@ pattern functor, @Tree@ type alias
 -- * "Data.Fmt.Kan" — Kan extension connections (Day, Yoneda, Codensity, etc.)
 module Data.Fmt (
     -- * Core Fmt type (from Data.Fmt.Type)

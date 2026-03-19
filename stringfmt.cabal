@@ -87,3 +87,17 @@ test-suite props
     , stringfmt
     , text
     , transformers
+
+benchmark bench
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: bench
+  default-language: Haskell2010
+  ghc-options: -Wall -O2 -threaded
+
+  build-depends:
+      base               >= 4.16  && < 5.0
+    , bytestring
+    , criterion          >= 1.5
+    , stringfmt
+    , text
